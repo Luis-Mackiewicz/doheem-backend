@@ -27,6 +27,23 @@ O **Doheem Backend** é a camada de negócios e dados da plataforma Doheem. Cons
 
 O projeto adota **Arquitetura Hexagonal** (Ports & Adapters), garantindo desacoplamento entre regras de negócio e dependências externas.
 
+### 🤔 Por que Arquitetura Hexagonal?
+
+O Doheem possui uma característica que torna essa escolha natural: **múltiplas integrações externas simultâneas**. O sistema conversa com PostgreSQL (persistência), Redis (cache), Kafka (mensageria) e uma API HTTP — ou seja, quatro "portas" de entrada e saída diferentes.
+
+Em uma arquitetura tradicional em camadas, a lógica de negócio ficaria acoplada a essas dependências. Isso significa que, por exemplo, a regra de *"dividir uma despesa igualmente entre os moradores"* estaria misturada com código de banco de dados ou HTTP — tornando o sistema frágil e difícil de testar.
+
+Com a **Arquitetura Hexagonal**, o domínio de negócio fica no centro, completamente isolado:
+
+| Problema sem a arquitetura | Como a Hexagonal resolve |
+|---|---|
+| Trocar o banco de dados exigiria alterar regras de negócio | O repositório é uma interface (Port); só o Adapter muda |
+| Testar a lógica de divisão de despesas exige subir o banco | O domínio é testável puro, sem infraestrutura |
+| Kafka acoplado ao Service dificulta manutenção | O Messaging é um Adapter substituível |
+| Difícil adicionar novo canal (ex: WebSocket) | Basta criar um novo Adapter HTTP sem tocar no domínio |
+
+Em termos práticos para o TCC: essa arquitetura permite que a **regra de negócio seja o coração do sistema**, independente de qual tecnologia está ao redor. Se amanhã o projeto migrar de Kafka para RabbitMQ, ou de PostgreSQL para outro banco, as regras de divisão de despesas e gestão de tarefas continuam intactas.
+
 ```
 cmd/
 └── doheem/
