@@ -1,0 +1,35 @@
+name: ci/cd
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+
+        go-version-file: 'go.mod'
+
+        check-latest: false
+
+        cache: true
+
+        cache-dependency-path: 'go.sum'
+
+        architecture: 'x64'
+        
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Test
+      run: go test -v ./...
