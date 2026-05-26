@@ -16,7 +16,7 @@ O **Doheem Backend** é a camada de negócios e dados da plataforma Doheem. Cons
 |---|---|
 | **Go** | Linguagem principal da API |
 | **PostgreSQL** | Banco de dados relacional |
-| **SQLC** | Geração de código type-safe a partir de queries SQL |
+| **SQLC** | Geração de código type-safe a partir de queries SQL |  
 | **Redis** | Cache de sessões e dados temporários |
 | **Kafka** | Mensageria assíncrona para eventos de tarefas e notificações |
 | **Docker / Docker Compose** | Containerização e orquestração do ambiente |
