@@ -1,20 +1,16 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
+
+	adapterhttp "doheem-backend/internal/adapter/http"
 )
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Doheem server is running! 🚀")
-}
-
 func main() {
-	mux := http.NewServeMux()
+	router := adapterhttp.NewRouter()
 
-	mux.HandleFunc("GET /", indexHandler)
+	slog.Info("Doheem server is running!")
 
-	fmt.Println("Doheem server is running! 🚀")
-
-	http.ListenAndServe(":8080", mux)
+	http.ListenAndServe(":8080", router)
 }
