@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres
+    image: postgres:18.4
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -15,7 +15,7 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379"
+      - "6379:6379" 
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
