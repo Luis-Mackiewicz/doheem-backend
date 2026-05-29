@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"time"
 
 	_ "doheem-backend/internal/adapter/http/docs"
 	"doheem-backend/internal/domain"
@@ -53,9 +54,10 @@ func (rt *Router) Handler() http.Handler {
 
 	mux.Handle("GET /api/swagger/*", httpSwagger.Handler())
 
-	mux.HandleFunc("POST /api/auth/register", rt.user.Register)
-	mux.HandleFunc("POST /api/auth/login", rt.user.Login)
-	mux.HandleFunc("POST /api/auth/refresh", rt.user.Refresh)
+	authLimiter := RateLimitMiddleware(NewRateLimiter(10, time.Minute))
+	mux.Handle("POST /api/auth/register", authLimiter(http.HandlerFunc(rt.user.Register)))
+	mux.Handle("POST /api/auth/login", authLimiter(http.HandlerFunc(rt.user.Login)))
+	mux.Handle("POST /api/auth/refresh", authLimiter(http.HandlerFunc(rt.user.Refresh)))
 	mux.Handle("POST /api/auth/logout", rt.auth(rt.user.Logout))
 
 	mux.Handle("GET /api/users/me", rt.auth(rt.user.GetProfile))
@@ -126,6 +128,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("DELETE /api/split-tags/{id}/members/{userId}", rt.auth(rt.splitTag.RemoveMember))
 
 	var h http.Handler = mux
+	h = RateLimitMiddleware(NewRateLimiter(100, time.Minute))(h)
 	h = LoggingMiddleware(h)
 	h = CORSMiddleware(h)
 	h = RecoveryMiddleware(h)
