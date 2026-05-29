@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -22,21 +21,21 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 
 	var req struct {
-		Description      string    `json:"description"`
-		TotalAmount      float64   `json:"total_amount"`
-		ExpenseDate      string    `json:"expense_date"`
-		DueDate          *string   `json:"due_date,omitempty"`
-		CategoryID       *string   `json:"category_id,omitempty"`
-		SplitType        string    `json:"split_type"`
-		IsInstallment    bool      `json:"is_installment"`
-		InstallmentCount *int16    `json:"installment_count,omitempty"`
+		Description      string   `json:"description"       validate:"required"`
+		TotalAmount      float64  `json:"total_amount"       validate:"required,gt=0"`
+		ExpenseDate      string   `json:"expense_date"       validate:"required"`
+		DueDate          *string  `json:"due_date,omitempty"`
+		CategoryID       *string  `json:"category_id,omitempty"`
+		SplitType        string   `json:"split_type"         validate:"required,oneof=equal custom"`
+		IsInstallment    bool     `json:"is_installment"`
+		InstallmentCount *int16   `json:"installment_count,omitempty"`
 		Splits           []struct {
-			UserID string  `json:"user_id"`
-			Amount float64 `json:"amount"`
+			UserID string  `json:"user_id" validate:"required"`
+			Amount float64 `json:"amount"   validate:"required,gt=0"`
 		} `json:"splits,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 
@@ -117,14 +116,14 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
 		Description *string  `json:"description,omitempty"`
-		TotalAmount *float64 `json:"total_amount,omitempty"`
+		TotalAmount *float64 `json:"total_amount,omitempty" validate:"omitempty,gt=0"`
 		ExpenseDate *string  `json:"expense_date,omitempty"`
 		DueDate     *string  `json:"due_date,omitempty"`
 		CategoryID  *string  `json:"category_id,omitempty"`
-		SplitType   *string  `json:"split_type,omitempty"`
+		SplitType   *string  `json:"split_type,omitempty"   validate:"omitempty,oneof=equal custom"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 
@@ -205,10 +204,10 @@ func (h *ExpenseHandler) MarkInstallmentAsPaid(w http.ResponseWriter, r *http.Re
 func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	var req struct {
-		Name string `json:"name"`
+		Name string `json:"name" validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	category, err := h.svc.CreateCategory(r.Context(), groupID, req.Name)
@@ -232,11 +231,11 @@ func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 func (h *ExpenseHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		GroupID string `json:"group_id"`
-		Name    string `json:"name"`
+		GroupID string `json:"group_id" validate:"required"`
+		Name    string `json:"name"     validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	category, err := h.svc.UpdateCategory(r.Context(), id, req.GroupID, req.Name)

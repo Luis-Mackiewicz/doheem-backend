@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -20,10 +19,10 @@ func (h *InviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
 	var req struct {
-		ExpiresAt string `json:"expires_at"`
+		ExpiresAt string `json:"expires_at" validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	expiresAt, err := time.Parse("2006-01-02T15:04:05Z07:00", req.ExpiresAt)

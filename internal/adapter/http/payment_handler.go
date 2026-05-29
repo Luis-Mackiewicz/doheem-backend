@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -19,14 +18,14 @@ func NewPaymentHandler(svc *domain.PaymentService) *PaymentHandler {
 func (h *PaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	var req struct {
-		PayerID     string  `json:"payer_id"`
-		ReceiverID  string  `json:"receiver_id"`
-		Amount      float64 `json:"amount"`
-		PaymentDate string  `json:"payment_date"`
+		PayerID     string  `json:"payer_id"     validate:"required"`
+		ReceiverID  string  `json:"receiver_id"  validate:"required"`
+		Amount      float64 `json:"amount"       validate:"required,gt=0"`
+		PaymentDate string  `json:"payment_date" validate:"required"`
 		Notes       *string `json:"notes,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	paymentDate, err := time.Parse("2006-01-02", req.PaymentDate)

@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"doheem-backend/internal/domain"
@@ -19,10 +18,10 @@ func (h *SplitTagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
 	var req struct {
-		Name string `json:"name"`
+		Name string `json:"name" validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	tag, err := h.svc.Create(r.Context(), groupID, req.Name, userID)
@@ -70,10 +69,10 @@ func (h *SplitTagHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 func (h *SplitTagHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		UserID string `json:"user_id"`
+		UserID string `json:"user_id" validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	member, err := h.svc.AddMember(r.Context(), id, req.UserID)

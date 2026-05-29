@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -19,13 +18,13 @@ func NewUserHandler(svc *domain.UserService, jwt *JWTService) *UserHandler {
 
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name      string  `json:"name"`
-		Email     string  `json:"email"`
-		Password  string  `json:"password"`
+		Name      string  `json:"name"      validate:"required"`
+		Email     string  `json:"email"     validate:"required,email"`
+		Password  string  `json:"password"  validate:"required,min=6"`
 		AvatarURL *string `json:"avatar_url,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	user, err := h.svc.Register(r.Context(), domain.CreateUserParams{
@@ -55,11 +54,11 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email    string `json:"email"    validate:"required,email"`
+		Password string `json:"password" validate:"required"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	user, err := h.svc.Login(r.Context(), req.Email, req.Password)
@@ -92,11 +91,11 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
 		Name      *string `json:"name,omitempty"`
-		Email     *string `json:"email,omitempty"`
+		Email     *string `json:"email,omitempty"     validate:"omitempty,email"`
 		AvatarURL *string `json:"avatar_url,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	user, err := h.svc.Update(r.Context(), userID, domain.UpdateUserParams{
@@ -118,11 +117,11 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
-		OldPassword string `json:"old_password"`
-		NewPassword string `json:"new_password"`
+		OldPassword string `json:"old_password" validate:"required"`
+		NewPassword string `json:"new_password" validate:"required,min=6"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	if err := h.svc.UpdatePassword(r.Context(), userID, req.OldPassword, req.NewPassword); err != nil {

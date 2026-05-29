@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -19,11 +18,11 @@ func NewGroupHandler(svc *domain.GroupService) *GroupHandler {
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
-		Name     string `json:"name"`
-		Currency string `json:"currency"`
+		Name     string `json:"name"     validate:"required"`
+		Currency string `json:"currency" validate:"required,len=3"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	group, err := h.svc.Create(r.Context(), domain.CreateGroupParams{
@@ -61,10 +60,10 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
 		Name     *string `json:"name,omitempty"`
-		Currency *string `json:"currency,omitempty"`
+		Currency *string `json:"currency,omitempty" validate:"omitempty,len=3"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	group, err := h.svc.Update(r.Context(), id, domain.UpdateGroupParams{
@@ -118,11 +117,11 @@ func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 func (h *GroupHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("id")
 	var req struct {
-		UserID string `json:"user_id"`
-		Role   string `json:"role"`
+		UserID string `json:"user_id" validate:"required"`
+		Role   string `json:"role"    validate:"required,oneof=owner admin member"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	member, err := h.svc.AddMember(r.Context(), groupID, req.UserID, req.Role)
@@ -137,10 +136,10 @@ func (h *GroupHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 	groupID := r.PathValue("id")
 	userID := r.PathValue("userId")
 	var req struct {
-		Role string `json:"role"`
+		Role string `json:"role" validate:"required,oneof=owner admin member"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	member, err := h.svc.UpdateMemberRole(r.Context(), groupID, userID, req.Role)

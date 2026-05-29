@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -21,7 +20,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 
 	var req struct {
-		Title            string  `json:"title"`
+		Title            string  `json:"title"              validate:"required"`
 		Description      *string `json:"description,omitempty"`
 		AssignedTo       *string `json:"assigned_to,omitempty"`
 		Category         *string `json:"category,omitempty"`
@@ -29,8 +28,8 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		RecurringPeriod  *string `json:"recurring_period,omitempty"`
 		RecurringEndedAt *string `json:"recurring_ended_at,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 
@@ -93,8 +92,8 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		RecurringPeriod  *string `json:"recurring_period,omitempty"`
 		RecurringEndedAt *string `json:"recurring_ended_at,omitempty"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	var recurringEndedAt *time.Time
@@ -132,11 +131,11 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("taskId")
 	var req struct {
-		DueDate string `json:"due_date"`
-		Status  string `json:"status"`
+		DueDate string `json:"due_date" validate:"required"`
+		Status  string `json:"status"   validate:"required,oneof=pending completed discarded overdue"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
 		return
 	}
 	dueDate, err := time.Parse("2006-01-02", req.DueDate)

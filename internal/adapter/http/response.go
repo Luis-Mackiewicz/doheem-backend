@@ -16,3 +16,10 @@ func respondJSON(w http.ResponseWriter, status int, v any) {
 func respondError(w http.ResponseWriter, status int, msg string) {
 	respondJSON(w, status, map[string]string{"error": msg})
 }
+
+func respondValidationError(w http.ResponseWriter, errs []validationError) {
+	respondJSON(w, http.StatusBadRequest, map[string]any{
+		"error":  "validation failed",
+		"fields": errs,
+	})
+}
