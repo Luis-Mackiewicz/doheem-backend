@@ -160,13 +160,22 @@ func (m *mockCategoryRepo) Delete(ctx context.Context, id, groupID string) error
 	return args.Error(0)
 }
 
+type mockEventBus struct {
+	mock.Mock
+}
+
+func (m *mockEventBus) Publish(ctx context.Context, event DomainEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
 func TestExpenseService_Create_InvalidSplitTotal(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
 	mockSplit := new(mockExpenseSplitRepo)
 	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember, new(mockEventBus))
 	ctx := context.Background()
 
 	params := CreateExpenseWithSplitsParams{
@@ -186,7 +195,7 @@ func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
 	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember, new(mockEventBus))
 	ctx := context.Background()
 
 	catID := "cat999"
@@ -212,19 +221,24 @@ func TestExpenseService_Create_Simple(t *testing.T) {
 	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	mockBus := new(mockEventBus)
+	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember, mockBus)
 	ctx := context.Background()
 
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{TotalAmount: 100},
 	}
 	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", TotalAmount: 100}, nil)
+	mockBus.On("Publish", ctx, mock.MatchedBy(func(e DomainEvent) bool {
+		return e.Type == "expense.created"
+	})).Return(nil)
 
 	expense, err := svc.Create(ctx, params)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "1", expense.ID)
 	mockExpense.AssertExpectations(t)
+	mockBus.AssertExpectations(t)
 }
 
 func TestExpenseService_Create_Installment(t *testing.T) {
@@ -233,7 +247,8 @@ func TestExpenseService_Create_Installment(t *testing.T) {
 	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	mockBus := new(mockEventBus)
+	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember, mockBus)
 	ctx := context.Background()
 
 	count := int16(3)
@@ -255,6 +270,9 @@ func TestExpenseService_Create_Installment(t *testing.T) {
 		return inst[0].InstallmentNumber == 1 && inst[0].Amount == 100 &&
 			inst[2].InstallmentNumber == 3 && inst[2].Amount == 100
 	})).Return(int64(3), nil)
+	mockBus.On("Publish", ctx, mock.MatchedBy(func(e DomainEvent) bool {
+		return e.Type == "expense.created"
+	})).Return(nil)
 
 	expense, err := svc.Create(ctx, params)
 
@@ -262,11 +280,12 @@ func TestExpenseService_Create_Installment(t *testing.T) {
 	assert.Equal(t, "1", expense.ID)
 	mockExpense.AssertExpectations(t)
 	mockInstallment.AssertExpectations(t)
+	mockBus.AssertExpectations(t)
 }
 
 func TestExpenseService_GetByID_NotFound(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockEventBus))
 	ctx := context.Background()
 
 	mockExpense.On("GetByID", ctx, "999").Return(Expense{}, assert.AnError)
@@ -278,7 +297,7 @@ func TestExpenseService_GetByID_NotFound(t *testing.T) {
 
 func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockEventBus))
 	ctx := context.Background()
 
 	mockExpense.On("GetTotalByGroup", ctx, "g1").Return(0.0, nil)
@@ -291,7 +310,7 @@ func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 
 func TestExpenseService_MarkSplitAsPaid(t *testing.T) {
 	mockSplit := new(mockExpenseSplitRepo)
-	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockEventBus))
 	ctx := context.Background()
 
 	mockSplit.On("MarkAsPaid", ctx, "s1").Return(nil)
@@ -307,7 +326,8 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	mockBus := new(mockEventBus)
+	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember, mockBus)
 	ctx := context.Background()
 
 	count := int16(2)
@@ -329,6 +349,9 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", TotalAmount: 100}, nil)
 	mockInstallment.On("CreateMany", ctx, "1", mock.Anything).Return(int64(2), nil)
 	mockSplit.On("CreateMany", ctx, "1", splits).Return(int64(2), nil)
+	mockBus.On("Publish", ctx, mock.MatchedBy(func(e DomainEvent) bool {
+		return e.Type == "expense.created"
+	})).Return(nil)
 
 	expense, err := svc.Create(ctx, params)
 
@@ -337,4 +360,5 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 	mockExpense.AssertExpectations(t)
 	mockInstallment.AssertExpectations(t)
 	mockSplit.AssertExpectations(t)
+	mockBus.AssertExpectations(t)
 }

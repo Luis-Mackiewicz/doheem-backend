@@ -8,12 +8,14 @@ import (
 type TaskService struct {
 	taskRepo         TaskRepository
 	taskOccurrenceRepo TaskOccurrenceRepository
+	eventBus         EventBus
 }
 
-func NewTaskService(taskRepo TaskRepository, taskOccurrenceRepo TaskOccurrenceRepository) *TaskService {
+func NewTaskService(taskRepo TaskRepository, taskOccurrenceRepo TaskOccurrenceRepository, eventBus EventBus) *TaskService {
 	return &TaskService{
 		taskRepo:         taskRepo,
 		taskOccurrenceRepo: taskOccurrenceRepo,
+		eventBus:         eventBus,
 	}
 }
 
@@ -50,7 +52,31 @@ func (s *TaskService) CreateOccurrence(ctx context.Context, taskID string, dueDa
 }
 
 func (s *TaskService) CompleteOccurrence(ctx context.Context, id, completedBy string) error {
-	return s.taskOccurrenceRepo.Complete(ctx, id, completedBy)
+	if err := s.taskOccurrenceRepo.Complete(ctx, id, completedBy); err != nil {
+		return err
+	}
+
+	occ, err := s.taskOccurrenceRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil
+	}
+	task, err := s.taskRepo.GetByID(ctx, occ.TaskID)
+	if err != nil {
+		return nil
+	}
+
+	s.eventBus.Publish(ctx, DomainEvent{
+		Type:     "task.occurrence.completed",
+		EntityID: id,
+		UserID:   completedBy,
+		GroupID:  task.GroupID,
+		Payload: map[string]any{
+			"task_id":    task.ID,
+			"task_title": task.Title,
+			"assigned_to": task.AssignedTo,
+		},
+	})
+	return nil
 }
 
 func (s *TaskService) DiscardOccurrence(ctx context.Context, id string) error {

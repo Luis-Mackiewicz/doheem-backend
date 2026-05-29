@@ -29,6 +29,7 @@ import (
 	"time"
 
 	adapterhttp "doheem-backend/internal/adapter/http"
+	"doheem-backend/internal/adapter/messaging"
 	"doheem-backend/internal/adapter/repository"
 	"doheem-backend/internal/adapter/repository/db"
 	"doheem-backend/internal/config"
@@ -90,11 +91,20 @@ func main() {
 
 	userSvc := domain.NewUserService(userRepo, refreshTokenRepo)
 	groupSvc := domain.NewGroupService(groupRepo, groupMemberRepo)
-	expenseSvc := domain.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo)
-	paymentSvc := domain.NewPaymentService(paymentRepo, paymentAttachmentRepo)
-	taskSvc := domain.NewTaskService(taskRepo, taskOccurrenceRepo)
-	inviteSvc := domain.NewInviteService(inviteRepo, groupMemberRepo, groupRepo)
 	notificationSvc := domain.NewNotificationService(notificationRepo)
+
+	eventBus := messaging.NewKafkaEventBus(cfg.KafkaBrokers)
+	defer eventBus.Close()
+
+	messaging.StartConsumer(ctx, cfg.KafkaBrokers, messaging.ConsumerDeps{
+		NotifSvc:  notificationSvc,
+		MemberSvc: groupSvc,
+	})
+
+	expenseSvc := domain.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo, eventBus)
+	paymentSvc := domain.NewPaymentService(paymentRepo, paymentAttachmentRepo, eventBus)
+	taskSvc := domain.NewTaskService(taskRepo, taskOccurrenceRepo, eventBus)
+	inviteSvc := domain.NewInviteService(inviteRepo, groupMemberRepo, groupRepo)
 	splitTagSvc := domain.NewSplitTagService(splitTagRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)

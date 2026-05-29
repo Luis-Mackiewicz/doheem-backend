@@ -11,6 +11,7 @@ type ExpenseService struct {
 	installmentRepo  InstallmentRepository
 	categoryRepo     ExpenseCategoryRepository
 	memberRepo       GroupMemberRepository
+	eventBus         EventBus
 }
 
 func NewExpenseService(
@@ -19,6 +20,7 @@ func NewExpenseService(
 	installmentRepo InstallmentRepository,
 	categoryRepo ExpenseCategoryRepository,
 	memberRepo GroupMemberRepository,
+	eventBus EventBus,
 ) *ExpenseService {
 	return &ExpenseService{
 		expenseRepo:      expenseRepo,
@@ -26,6 +28,7 @@ func NewExpenseService(
 		installmentRepo:  installmentRepo,
 		categoryRepo:     categoryRepo,
 		memberRepo:       memberRepo,
+		eventBus:         eventBus,
 	}
 }
 
@@ -81,6 +84,17 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 			}
 		}
 
+		s.eventBus.Publish(ctx, DomainEvent{
+			Type:     "expense.created",
+			EntityID: expense.ID,
+			UserID:   expense.CreatedBy,
+			GroupID:  expense.GroupID,
+			Payload: map[string]any{
+				"total_amount": expense.TotalAmount,
+				"description":  expense.Description,
+			},
+		})
+
 		return expense, nil
 	}
 
@@ -95,6 +109,17 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 			return Expense{}, err
 		}
 	}
+
+	s.eventBus.Publish(ctx, DomainEvent{
+		Type:     "expense.created",
+		EntityID: expense.ID,
+		UserID:   expense.CreatedBy,
+		GroupID:  expense.GroupID,
+		Payload: map[string]any{
+			"total_amount": expense.TotalAmount,
+			"description":  expense.Description,
+		},
+	})
 
 	return expense, nil
 }

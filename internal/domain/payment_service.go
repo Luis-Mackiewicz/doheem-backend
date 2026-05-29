@@ -7,12 +7,14 @@ import (
 type PaymentService struct {
 	paymentRepo         PaymentRepository
 	paymentAttachmentRepo PaymentAttachmentRepository
+	eventBus            EventBus
 }
 
-func NewPaymentService(paymentRepo PaymentRepository, paymentAttachmentRepo PaymentAttachmentRepository) *PaymentService {
+func NewPaymentService(paymentRepo PaymentRepository, paymentAttachmentRepo PaymentAttachmentRepository, eventBus EventBus) *PaymentService {
 	return &PaymentService{
 		paymentRepo:         paymentRepo,
 		paymentAttachmentRepo: paymentAttachmentRepo,
+		eventBus:            eventBus,
 	}
 }
 
@@ -51,7 +53,23 @@ func (s *PaymentService) Confirm(ctx context.Context, id string) error {
 	if payment.Status == "cancelled" {
 		return ErrPaymentAlreadyCancelled
 	}
-	return s.paymentRepo.Confirm(ctx, id)
+	if err := s.paymentRepo.Confirm(ctx, id); err != nil {
+		return err
+	}
+
+	s.eventBus.Publish(ctx, DomainEvent{
+		Type:     "payment.confirmed",
+		EntityID: id,
+		UserID:   payment.PayerID,
+		GroupID:  payment.GroupID,
+		Payload: map[string]any{
+			"receiver_id": payment.ReceiverID,
+			"payer_name":  "User",
+			"amount":      payment.Amount,
+		},
+	})
+
+	return nil
 }
 
 func (s *PaymentService) Cancel(ctx context.Context, id string) error {
