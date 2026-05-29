@@ -15,6 +15,20 @@ func NewExpenseHandler(svc *domain.ExpenseService) *ExpenseHandler {
 	return &ExpenseHandler{svc: svc}
 }
 
+// Create creates a new expense in a group
+// @Summary Create an expense
+// @Description Create a new expense with splits in a group
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 201 {object} expenseResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/expenses [post]
+// @Security BearerAuth
 func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
@@ -83,6 +97,19 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toExpenseResponse(expense))
 }
 
+// ListByGroup lists expenses in a group
+// @Summary List expenses by group
+// @Description List all expenses for a specific group
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 200 {array} expenseResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/expenses [get]
+// @Security BearerAuth
 func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	expenses, err := h.svc.ListByGroup(r.Context(), groupID)
@@ -93,6 +120,19 @@ func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toExpenseResponses(expenses))
 }
 
+// GetByID gets an expense by ID
+// @Summary Get expense by ID
+// @Description Get a single expense by its unique identifier
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Expense ID"
+// @Success 200 {object} expenseResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Expense not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/{id} [get]
+// @Security BearerAuth
 func (h *ExpenseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	expense, err := h.svc.GetByID(r.Context(), id)
@@ -103,6 +143,20 @@ func (h *ExpenseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toExpenseResponse(expense))
 }
 
+// Update updates an expense
+// @Summary Update an expense
+// @Description Update an existing expense's details
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Expense ID"
+// @Success 200 {object} expenseResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Expense not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/{id} [put]
+// @Security BearerAuth
 func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
@@ -145,6 +199,19 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toExpenseResponse(expense))
 }
 
+// Delete deletes an expense
+// @Summary Delete an expense
+// @Description Permanently delete an expense
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Expense ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Expense not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/{id} [delete]
+// @Security BearerAuth
 func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
@@ -154,6 +221,19 @@ func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ListSplits lists splits for an expense
+// @Summary List expense splits
+// @Description List all payment splits for a specific expense
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Expense ID"
+// @Success 200 {array} expenseSplitWithUserResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Expense not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/{id}/splits [get]
+// @Security BearerAuth
 func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	splits, err := h.svc.ListSplitsByExpense(r.Context(), id)
@@ -164,6 +244,19 @@ func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toExpenseSplitResponses(splits))
 }
 
+// MarkSplitAsPaid marks a split as paid
+// @Summary Mark split as paid
+// @Description Mark an expense split as paid
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Split ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Split not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/splits/{id}/pay [patch]
+// @Security BearerAuth
 func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.MarkSplitAsPaid(r.Context(), id); err != nil {
@@ -173,6 +266,19 @@ func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ListInstallments lists installments for an expense
+// @Summary List expense installments
+// @Description List all installments for a specific installment-based expense
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Expense ID"
+// @Success 200 {array} installmentResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Expense not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/{id}/installments [get]
+// @Security BearerAuth
 func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	installments, err := h.svc.ListInstallmentsByExpense(r.Context(), id)
@@ -183,6 +289,19 @@ func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request
 	respondJSON(w, http.StatusOK, toInstallmentResponses(installments))
 }
 
+// MarkInstallmentAsPaid marks an installment as paid
+// @Summary Mark installment as paid
+// @Description Mark an expense installment as paid
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Installment ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Installment not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/expenses/installments/{id}/pay [patch]
+// @Security BearerAuth
 func (h *ExpenseHandler) MarkInstallmentAsPaid(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.MarkInstallmentAsPaid(r.Context(), id); err != nil {
@@ -192,6 +311,20 @@ func (h *ExpenseHandler) MarkInstallmentAsPaid(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// CreateCategory creates a new expense category
+// @Summary Create a category
+// @Description Create a new expense category for a group
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Param request body object{name=string} true "Category name"
+// @Success 201 {object} categoryResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/categories [post]
+// @Security BearerAuth
 func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	var req struct {
@@ -209,6 +342,19 @@ func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusCreated, toCategoryResponse(category))
 }
 
+// ListCategories lists categories for a group
+// @Summary List categories
+// @Description List all expense categories for a specific group
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 200 {array} categoryResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/categories [get]
+// @Security BearerAuth
 func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	categories, err := h.svc.ListCategoriesByGroup(r.Context(), groupID)
@@ -219,6 +365,21 @@ func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, toCategoryResponses(categories))
 }
 
+// UpdateCategory updates a category
+// @Summary Update a category
+// @Description Update an existing expense category
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Category ID"
+// @Param request body object{group_id=string,name=string} true "Category update details"
+// @Success 200 {object} categoryResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Category not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/categories/{id} [put]
+// @Security BearerAuth
 func (h *ExpenseHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
@@ -237,6 +398,20 @@ func (h *ExpenseHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, toCategoryResponse(category))
 }
 
+// DeleteCategory deletes a category
+// @Summary Delete a category
+// @Description Delete an expense category
+// @Tags Expenses
+// @Accept json
+// @Produce json
+// @Param id path string true "Category ID"
+// @Success 204 {object} nil
+// @Failure 400 {object} map[string]any "group_id query param required"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Category not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/categories/{id} [delete]
+// @Security BearerAuth
 func (h *ExpenseHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	groupID := r.URL.Query().Get("group_id")

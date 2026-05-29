@@ -1,3 +1,22 @@
+// @title           Doheem API
+// @version         1.0
+// @description     Backend for the Doheem expense management application
+// @termsOfService  https://github.com/Luis-Mackiewicz/doheem-backend
+
+// @contact.name   Luis Mackiewicz
+// @contact.email  luis@example.com
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /api
+
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                Enter "Bearer <token>"
+
 package main
 
 import (

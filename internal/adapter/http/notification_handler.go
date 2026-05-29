@@ -15,6 +15,19 @@ func NewNotificationHandler(svc *domain.NotificationService) *NotificationHandle
 	return &NotificationHandler{svc: svc}
 }
 
+// List lists notifications for the authenticated user
+// @Summary List notifications
+// @Description List all notifications for the currently authenticated user with pagination
+// @Tags Notifications
+// @Accept json
+// @Produce json
+// @Param limit query int false "Page limit"
+// @Param offset query int false "Page offset"
+// @Success 200 {array} notificationResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/notifications [get]
+// @Security BearerAuth
 func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -30,6 +43,17 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toNotificationResponses(notifications))
 }
 
+// ListUnread lists unread notifications
+// @Summary List unread notifications
+// @Description List all unread notifications for the currently authenticated user
+// @Tags Notifications
+// @Accept json
+// @Produce json
+// @Success 200 {array} notificationResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/notifications/unread [get]
+// @Security BearerAuth
 func (h *NotificationHandler) ListUnread(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	notifications, err := h.svc.ListUnreadByUser(r.Context(), userID)
@@ -40,6 +64,19 @@ func (h *NotificationHandler) ListUnread(w http.ResponseWriter, r *http.Request)
 	respondJSON(w, http.StatusOK, toNotificationResponses(notifications))
 }
 
+// MarkAsRead marks a notification as read
+// @Summary Mark notification as read
+// @Description Mark a single notification as read
+// @Tags Notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Notification ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Notification not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/notifications/{id}/read [patch]
+// @Security BearerAuth
 func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
@@ -50,6 +87,17 @@ func (h *NotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// MarkAllAsRead marks all notifications as read
+// @Summary Mark all notifications as read
+// @Description Mark all unread notifications as read for the authenticated user
+// @Tags Notifications
+// @Accept json
+// @Produce json
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/notifications/read-all [patch]
+// @Security BearerAuth
 func (h *NotificationHandler) MarkAllAsRead(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	if err := h.svc.MarkAllAsRead(r.Context(), userID); err != nil {
@@ -59,6 +107,19 @@ func (h *NotificationHandler) MarkAllAsRead(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Delete deletes a notification
+// @Summary Delete a notification
+// @Description Permanently delete a notification
+// @Tags Notifications
+// @Accept json
+// @Produce json
+// @Param id path string true "Notification ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Notification not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/notifications/{id} [delete]
+// @Security BearerAuth
 func (h *NotificationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")

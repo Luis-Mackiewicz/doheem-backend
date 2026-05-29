@@ -16,6 +16,18 @@ func NewUserHandler(svc *domain.UserService, jwt *JWTService) *UserHandler {
 	return &UserHandler{svc: svc, jwt: jwt}
 }
 
+// Register registers a new user
+// @Summary Register a new user
+// @Description Create a new user account and return an auth token
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body object{name=string,email=string,password=string} true "Registration details"
+// @Success 201 {object} authResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 409 {object} map[string]any "Email already in use"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/auth/register [post]
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name      string  `json:"name"      validate:"required"`
@@ -48,6 +60,18 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Login authenticates a user
+// @Summary Login
+// @Description Authenticate a user with email and password and return an auth token
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body object{email=string,password=string} true "Login credentials"
+// @Success 200 {object} authResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Invalid email or password"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/auth/login [post]
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email    string `json:"email"    validate:"required,email"`
@@ -73,6 +97,18 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetProfile returns the authenticated user's profile
+// @Summary Get user profile
+// @Description Get the profile of the currently authenticated user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Success 200 {object} userResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "User not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/users/me [get]
+// @Security BearerAuth
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	user, err := h.svc.GetByID(r.Context(), userID)
@@ -83,6 +119,19 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toUserResponse(user))
 }
 
+// UpdateProfile updates the authenticated user's profile
+// @Summary Update user profile
+// @Description Update the profile of the currently authenticated user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body object{name=string,email=string,avatar_url=string} true "Profile update details"
+// @Success 200 {object} userResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/users/me [put]
+// @Security BearerAuth
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
@@ -106,6 +155,19 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toUserResponse(user))
 }
 
+// ChangePassword changes the authenticated user's password
+// @Summary Change password
+// @Description Change the password of the currently authenticated user
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body object{old_password=string,new_password=string} true "Password change details"
+// @Success 204 {object} nil
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Invalid current password"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/users/me/password [put]
+// @Security BearerAuth
 func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {

@@ -3,7 +3,10 @@ package http
 import (
 	"net/http"
 
+	_ "doheem-backend/internal/adapter/http/docs"
 	"doheem-backend/internal/domain"
+
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Router struct {
@@ -47,6 +50,8 @@ func (rt *Router) Handler() http.Handler {
 
 	health := &HealthHandler{}
 	mux.HandleFunc("GET /", health.HealthCheck)
+
+	mux.Handle("GET /api/swagger/*", httpSwagger.Handler())
 
 	mux.HandleFunc("POST /api/auth/register", rt.user.Register)
 	mux.HandleFunc("POST /api/auth/login", rt.user.Login)

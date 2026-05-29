@@ -15,6 +15,20 @@ func NewInviteHandler(svc *domain.InviteService) *InviteHandler {
 	return &InviteHandler{svc: svc}
 }
 
+// Create creates a new invite for a group
+// @Summary Create an invite
+// @Description Create a new invitation link/code for a group
+// @Tags Invites
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 201 {object} inviteResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/invites [post]
+// @Security BearerAuth
 func (h *InviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
@@ -38,6 +52,19 @@ func (h *InviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toInviteResponse(invite))
 }
 
+// ListByGroup lists invites for a group
+// @Summary List invites by group
+// @Description List all invites for a specific group
+// @Tags Invites
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 200 {array} inviteWithCreatorResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/invites [get]
+// @Security BearerAuth
 func (h *InviteHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	invites, err := h.svc.ListByGroup(r.Context(), groupID)
@@ -48,6 +75,17 @@ func (h *InviteHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toInviteWithCreatorResponses(invites))
 }
 
+// ListPending lists pending invites for the authenticated user
+// @Summary List pending invites
+// @Description List all pending invites for the currently authenticated user
+// @Tags Invites
+// @Accept json
+// @Produce json
+// @Success 200 {array} inviteWithGroupResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/invites/pending [get]
+// @Security BearerAuth
 func (h *InviteHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	invites, err := h.svc.ListPendingByUser(r.Context(), userID)
@@ -58,6 +96,20 @@ func (h *InviteHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toInviteWithGroupResponses(invites))
 }
 
+// Accept accepts an invite
+// @Summary Accept an invite
+// @Description Accept an invitation to join a group
+// @Tags Invites
+// @Accept json
+// @Produce json
+// @Param id path string true "Invite ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Invite not found"
+// @Failure 409 {object} map[string]any "Invite already used or expired"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/invites/{id}/accept [post]
+// @Security BearerAuth
 func (h *InviteHandler) Accept(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
@@ -68,6 +120,19 @@ func (h *InviteHandler) Accept(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Revoke revokes an invite
+// @Summary Revoke an invite
+// @Description Revoke an invitation before it is used
+// @Tags Invites
+// @Accept json
+// @Produce json
+// @Param id path string true "Invite ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Invite not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/invites/{id}/revoke [patch]
+// @Security BearerAuth
 func (h *InviteHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Revoke(r.Context(), id); err != nil {

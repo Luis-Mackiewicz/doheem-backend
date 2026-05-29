@@ -15,6 +15,20 @@ func NewTaskHandler(svc *domain.TaskService) *TaskHandler {
 	return &TaskHandler{svc: svc}
 }
 
+// Create creates a new task in a group
+// @Summary Create a task
+// @Description Create a new task in a group
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 201 {object} taskResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/tasks [post]
+// @Security BearerAuth
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
@@ -61,6 +75,19 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toTaskResponse(task))
 }
 
+// ListByGroup lists tasks in a group
+// @Summary List tasks by group
+// @Description List all tasks for a specific group
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param groupId path string true "Group ID"
+// @Success 200 {array} taskResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Group not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/groups/{groupId}/tasks [get]
+// @Security BearerAuth
 func (h *TaskHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	tasks, err := h.svc.ListByGroup(r.Context(), groupID)
@@ -71,6 +98,19 @@ func (h *TaskHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toTaskResponses(tasks))
 }
 
+// GetByID gets a task by ID
+// @Summary Get task by ID
+// @Description Get a single task by its unique identifier
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 200 {object} taskResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Task not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/{id} [get]
+// @Security BearerAuth
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	task, err := h.svc.GetByID(r.Context(), id)
@@ -81,6 +121,20 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toTaskResponse(task))
 }
 
+// Update updates a task
+// @Summary Update a task
+// @Description Update an existing task's details
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 200 {object} taskResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Task not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/{id} [put]
+// @Security BearerAuth
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
@@ -119,6 +173,19 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toTaskResponse(task))
 }
 
+// Delete deletes a task
+// @Summary Delete a task
+// @Description Permanently delete a task
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Task not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/{id} [delete]
+// @Security BearerAuth
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
@@ -128,6 +195,20 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// CreateOccurrence creates a new occurrence for a task
+// @Summary Create a task occurrence
+// @Description Create a new occurrence (instance) for a recurring task
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param taskId path string true "Task ID"
+// @Success 201 {object} taskOccurrenceResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Task not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/{taskId}/occurrences [post]
+// @Security BearerAuth
 func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("taskId")
 	var req struct {
@@ -151,6 +232,19 @@ func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toTaskOccurrenceResponse(occurrence))
 }
 
+// ListOccurrences lists occurrences for a task
+// @Summary List task occurrences
+// @Description List all occurrences for a specific task
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Task ID"
+// @Success 200 {array} taskOccurrenceResponse
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Task not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/{id}/occurrences [get]
+// @Security BearerAuth
 func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("id")
 	occurrences, err := h.svc.ListOccurrencesByTask(r.Context(), taskID)
@@ -161,6 +255,19 @@ func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toTaskOccurrenceResponses(occurrences))
 }
 
+// CompleteOccurrence marks a task occurrence as complete
+// @Summary Complete a task occurrence
+// @Description Mark a task occurrence as completed by the authenticated user
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Occurrence ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Occurrence not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/occurrences/{id}/complete [patch]
+// @Security BearerAuth
 func (h *TaskHandler) CompleteOccurrence(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
@@ -171,6 +278,19 @@ func (h *TaskHandler) CompleteOccurrence(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// DiscardOccurrence discards a task occurrence
+// @Summary Discard a task occurrence
+// @Description Discard (mark as discarded) a task occurrence
+// @Tags Tasks
+// @Accept json
+// @Produce json
+// @Param id path string true "Occurrence ID"
+// @Success 204 {object} nil
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 404 {object} map[string]any "Occurrence not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/tasks/occurrences/{id}/discard [patch]
+// @Security BearerAuth
 func (h *TaskHandler) DiscardOccurrence(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.DiscardOccurrence(r.Context(), id); err != nil {
