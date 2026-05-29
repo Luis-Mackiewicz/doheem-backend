@@ -10,10 +10,11 @@ import (
 
 type UserHandler struct {
 	svc *domain.UserService
+	jwt *JWTService
 }
 
-func NewUserHandler(svc *domain.UserService) *UserHandler {
-	return &UserHandler{svc: svc}
+func NewUserHandler(svc *domain.UserService, jwt *JWTService) *UserHandler {
+	return &UserHandler{svc: svc, jwt: jwt}
 }
 
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +42,15 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	respondJSON(w, http.StatusCreated, toUserResponse(user))
+	token, err := h.jwt.GenerateToken(user.ID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+	respondJSON(w, http.StatusCreated, authResponse{
+		User:  toUserResponse(user),
+		Token: token,
+	})
 }
 
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +67,15 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
-	respondJSON(w, http.StatusOK, toUserResponse(user))
+	token, err := h.jwt.GenerateToken(user.ID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+	respondJSON(w, http.StatusOK, authResponse{
+		User:  toUserResponse(user),
+		Token: token,
+	})
 }
 
 func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +143,11 @@ type userResponse struct {
 	AvatarURL *string `json:"avatar_url,omitempty"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt string  `json:"updated_at"`
+}
+
+type authResponse struct {
+	User  userResponse `json:"user"`
+	Token string       `json:"token"`
 }
 
 func toUserResponse(u domain.User) userResponse {

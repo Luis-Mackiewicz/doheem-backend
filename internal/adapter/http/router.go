@@ -7,6 +7,7 @@ import (
 )
 
 type Router struct {
+	jwt          *JWTService
 	user         *UserHandler
 	group        *GroupHandler
 	expense      *ExpenseHandler
@@ -18,6 +19,7 @@ type Router struct {
 }
 
 func NewRouter(
+	jwt *JWTService,
 	userSvc *domain.UserService,
 	groupSvc *domain.GroupService,
 	expenseSvc *domain.ExpenseService,
@@ -28,7 +30,8 @@ func NewRouter(
 	splitTagSvc *domain.SplitTagService,
 ) *Router {
 	return &Router{
-		user:         NewUserHandler(userSvc),
+		jwt:          jwt,
+		user:         NewUserHandler(userSvc, jwt),
 		group:        NewGroupHandler(groupSvc),
 		expense:      NewExpenseHandler(expenseSvc),
 		payment:      NewPaymentHandler(paymentSvc),
@@ -124,5 +127,5 @@ func (rt *Router) Handler() http.Handler {
 }
 
 func (rt *Router) auth(handler http.HandlerFunc) http.Handler {
-	return AuthMiddleware(http.HandlerFunc(handler))
+	return rt.jwt.AuthMiddleware(http.HandlerFunc(handler))
 }

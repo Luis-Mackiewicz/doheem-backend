@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -45,17 +44,5 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 			}
 		}()
 		next.ServeHTTP(w, r)
-	})
-}
-
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.Header.Get("X-User-ID")
-		if userID == "" {
-			respondError(w, http.StatusUnauthorized, "missing authentication")
-			return
-		}
-		ctx := context.WithValue(r.Context(), UserIDKey, userID)
-		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

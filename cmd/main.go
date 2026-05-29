@@ -65,7 +65,13 @@ func main() {
 	notificationSvc := domain.NewNotificationService(notificationRepo)
 	splitTagSvc := domain.NewSplitTagService(splitTagRepo)
 
-	router := adapterhttp.NewRouter(userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "doheem-dev-secret-change-in-production"
+	}
+	jwtSvc := adapterhttp.NewJWTService(jwtSecret)
+
+	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc)
 
 	port := os.Getenv("PORT")
 	if port == "" {
