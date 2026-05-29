@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 
 	"doheem-backend/internal/domain"
 )
@@ -30,30 +29,16 @@ func NewNotificationHandler(svc *domain.NotificationService) *NotificationHandle
 // @Security BearerAuth
 func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
-	if limit <= 0 {
-		limit = 50
-	}
+	limit, offset := parsePagination(r)
 	notifications, err := h.svc.ListByUser(r.Context(), userID, int32(limit), int32(offset))
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toNotificationResponses(notifications))
+	items, total := paginate(toNotificationResponses(notifications), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
-// ListUnread lists unread notifications
-// @Summary List unread notifications
-// @Description List all unread notifications for the currently authenticated user
-// @Tags Notifications
-// @Accept json
-// @Produce json
-// @Success 200 {array} notificationResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/notifications/unread [get]
-// @Security BearerAuth
 func (h *NotificationHandler) ListUnread(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	notifications, err := h.svc.ListUnreadByUser(r.Context(), userID)
@@ -61,7 +46,9 @@ func (h *NotificationHandler) ListUnread(w http.ResponseWriter, r *http.Request)
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toNotificationResponses(notifications))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toNotificationResponses(notifications), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // MarkAsRead marks a notification as read

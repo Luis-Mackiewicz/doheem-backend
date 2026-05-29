@@ -95,7 +95,21 @@ func (h *TaskHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toTaskResponses(tasks))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toTaskResponses(tasks), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
+	taskID := r.PathValue("id")
+	occurrences, err := h.svc.ListOccurrencesByTask(r.Context(), taskID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toTaskOccurrenceResponses(occurrences), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // GetByID gets a task by ID
@@ -245,16 +259,6 @@ func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/tasks/{id}/occurrences [get]
 // @Security BearerAuth
-func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
-	taskID := r.PathValue("id")
-	occurrences, err := h.svc.ListOccurrencesByTask(r.Context(), taskID)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toTaskOccurrenceResponses(occurrences))
-}
-
 // CompleteOccurrence marks a task occurrence as complete
 // @Summary Complete a task occurrence
 // @Description Mark a task occurrence as completed by the authenticated user

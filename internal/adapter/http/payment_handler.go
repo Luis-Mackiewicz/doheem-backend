@@ -1,10 +1,15 @@
 package http
 
 import (
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"doheem-backend/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 type PaymentHandler struct {
@@ -82,7 +87,9 @@ func (h *PaymentHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toPaymentWithUserResponses(payments))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toPaymentWithUserResponses(payments), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // GetByID gets a payment by ID
@@ -174,6 +181,91 @@ func (h *PaymentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// UploadAttachment uploads a file attachment for a payment
+// @Summary Upload payment attachment
+// @Description Upload a file (jpeg, png, gif, pdf) as an attachment for a payment
+// @Tags Payments
+// @Accept mpfd
+// @Produce json
+// @Param id path string true "Payment ID"
+// @Param file formData file true "Attachment file"
+// @Success 201 {object} paymentAttachmentResponse
+// @Failure 400 {object} map[string]any "Invalid file or request"
+// @Failure 404 {object} map[string]any "Payment not found"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/payments/{id}/attachments [post]
+// @Security BearerAuth
+func (h *PaymentHandler) UploadAttachment(w http.ResponseWriter, r *http.Request) {
+	paymentID := r.PathValue("id")
+
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		respondError(w, http.StatusBadRequest, "file too large or invalid multipart form")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "missing file field")
+		return
+	}
+	defer file.Close()
+
+	allowedTypes := map[string]bool{
+		"image/jpeg": true, "image/png": true, "image/gif": true,
+		"application/pdf": true,
+	}
+	contentType := header.Header.Get("Content-Type")
+	if !allowedTypes[contentType] {
+		respondError(w, http.StatusBadRequest, "invalid file type, allowed: jpeg, png, gif, pdf")
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	filename := uuid.NewString() + ext
+	uploadDir := "./uploads"
+	os.MkdirAll(uploadDir, 0755)
+	dst, err := os.Create(filepath.Join(uploadDir, filename))
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to save file")
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to save file")
+		return
+	}
+
+	attachment, err := h.svc.AddAttachment(r.Context(), paymentID, filepath.Join(uploadDir, filename), contentType, int32(header.Size))
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, toPaymentAttachmentResponse(attachment))
+}
+
+type paymentAttachmentResponse struct {
+	ID        string `json:"id"`
+	PaymentID string `json:"payment_id"`
+	FilePath  string `json:"file_path"`
+	FileType  string `json:"file_type"`
+	FileSize  int32  `json:"file_size"`
+	UploadedAt string `json:"uploaded_at"`
+}
+
+func toPaymentAttachmentResponse(a domain.PaymentAttachment) paymentAttachmentResponse {
+	return paymentAttachmentResponse{
+		ID:         a.ID,
+		PaymentID:  a.PaymentID,
+		FilePath:   a.FilePath,
+		FileType:   a.FileType,
+		FileSize:   a.FileSize,
+		UploadedAt: a.UploadedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
 }
 
 type paymentResponse struct {

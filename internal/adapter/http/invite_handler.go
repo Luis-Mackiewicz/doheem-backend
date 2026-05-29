@@ -72,7 +72,21 @@ func (h *InviteHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toInviteWithCreatorResponses(invites))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toInviteWithCreatorResponses(invites), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *InviteHandler) ListPending(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
+	invites, err := h.svc.ListPendingByUser(r.Context(), userID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toInviteWithGroupResponses(invites), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // ListPending lists pending invites for the authenticated user
@@ -86,16 +100,6 @@ func (h *InviteHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/invites/pending [get]
 // @Security BearerAuth
-func (h *InviteHandler) ListPending(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(UserIDKey).(string)
-	invites, err := h.svc.ListPendingByUser(r.Context(), userID)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toInviteWithGroupResponses(invites))
-}
-
 // Accept accepts an invite
 // @Summary Accept an invite
 // @Description Accept an invitation to join a group

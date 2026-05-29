@@ -117,7 +117,45 @@ func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toExpenseResponses(expenses))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toExpenseResponses(expenses), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	splits, err := h.svc.ListSplitsByExpense(r.Context(), id)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toExpenseSplitResponses(splits), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	installments, err := h.svc.ListInstallmentsByExpense(r.Context(), id)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toInstallmentResponses(installments), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
+	groupID := r.PathValue("groupId")
+	categories, err := h.svc.ListCategoriesByGroup(r.Context(), groupID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toCategoryResponses(categories), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // GetByID gets an expense by ID
@@ -234,16 +272,6 @@ func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/expenses/{id}/splits [get]
 // @Security BearerAuth
-func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	splits, err := h.svc.ListSplitsByExpense(r.Context(), id)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toExpenseSplitResponses(splits))
-}
-
 // MarkSplitAsPaid marks a split as paid
 // @Summary Mark split as paid
 // @Description Mark an expense split as paid
@@ -279,16 +307,6 @@ func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request)
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/expenses/{id}/installments [get]
 // @Security BearerAuth
-func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	installments, err := h.svc.ListInstallmentsByExpense(r.Context(), id)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toInstallmentResponses(installments))
-}
-
 // MarkInstallmentAsPaid marks an installment as paid
 // @Summary Mark installment as paid
 // @Description Mark an expense installment as paid
@@ -355,16 +373,6 @@ func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) 
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/groups/{groupId}/categories [get]
 // @Security BearerAuth
-func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	groupID := r.PathValue("groupId")
-	categories, err := h.svc.ListCategoriesByGroup(r.Context(), groupID)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toCategoryResponses(categories))
-}
-
 // UpdateCategory updates a category
 // @Summary Update a category
 // @Description Update an existing expense category

@@ -66,7 +66,21 @@ func (h *SplitTagHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toSplitTagResponses(tags))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toSplitTagResponses(tags), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *SplitTagHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	members, err := h.svc.ListMembers(r.Context(), id)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toSplitTagMemberResponses(members), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // Delete deletes a split tag
@@ -110,16 +124,6 @@ func (h *SplitTagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/split-tags/{id}/members [get]
 // @Security BearerAuth
-func (h *SplitTagHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	members, err := h.svc.ListMembers(r.Context(), id)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toSplitTagMemberResponses(members))
-}
-
 // AddMember adds a member to a split tag
 // @Summary Add split tag member
 // @Description Add a member to a split tag

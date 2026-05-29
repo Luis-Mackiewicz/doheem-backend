@@ -108,6 +108,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("PATCH /api/payments/{id}/confirm", rt.auth(rt.payment.Confirm))
 	mux.Handle("PATCH /api/payments/{id}/cancel", rt.auth(rt.payment.Cancel))
 	mux.Handle("DELETE /api/payments/{id}", rt.auth(rt.payment.Delete))
+	mux.Handle("POST /api/payments/{id}/attachments", rt.auth(rt.payment.UploadAttachment))
 
 	mux.Handle("POST /api/groups/{groupId}/tasks", rt.auth(rt.task.Create))
 	mux.Handle("GET /api/groups/{groupId}/tasks", rt.auth(rt.task.ListByGroup))

@@ -112,7 +112,7 @@ func TestRegister_Success(t *testing.T) {
 	}
 	var data authResponse
 	readJSON(t, w.Body.Bytes(), &data)
-	if data.User.ID != "u1" || data.Token == "" || data.RefreshToken == "" {
+	if data.User.ID != "u1" || data.Token == "" {
 		t.Fatal("unexpected response")
 	}
 	repo.AssertExpectations(t)
@@ -186,8 +186,8 @@ func TestLogin_Success(t *testing.T) {
 	}
 	var data authResponse
 	readJSON(t, w.Body.Bytes(), &data)
-	if data.Token == "" || data.RefreshToken == "" {
-		t.Fatal("expected token and refresh_token")
+	if data.Token == "" {
+		t.Fatal("expected token")
 	}
 	repo.AssertExpectations(t)
 	refreshRepo.AssertExpectations(t)

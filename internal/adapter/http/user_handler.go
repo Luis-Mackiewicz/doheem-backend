@@ -64,10 +64,10 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "failed to store refresh token")
 		return
 	}
+	setRefreshTokenCookie(w, refreshToken, time.Now().Add(168*time.Hour))
 	respondJSON(w, http.StatusCreated, authResponse{
-		User:         toUserResponse(user),
-		Token:        token,
-		RefreshToken: refreshToken,
+		User:  toUserResponse(user),
+		Token: token,
 	})
 }
 
@@ -111,10 +111,10 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "failed to store refresh token")
 		return
 	}
+	setRefreshTokenCookie(w, refreshToken, time.Now().Add(168*time.Hour))
 	respondJSON(w, http.StatusOK, authResponse{
-		User:         toUserResponse(user),
-		Token:        token,
-		RefreshToken: refreshToken,
+		User:  toUserResponse(user),
+		Token: token,
 	})
 }
 
@@ -216,28 +216,28 @@ func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body object{refresh_token=string} true "Refresh token"
 // @Success 200 {object} authResponse
-// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 400 {object} map[string]any "Refresh token required"
 // @Failure 401 {object} map[string]any "Invalid or expired refresh token"
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/auth/refresh [post]
 func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		RefreshToken string `json:"refresh_token" validate:"required"`
+	refreshToken := ""
+	if cookie, err := r.Cookie("refresh_token"); err == nil {
+		refreshToken = cookie.Value
 	}
-	if errs := decodeAndValidate(r, &req); errs != nil {
-		respondValidationError(w, errs)
+	if refreshToken == "" {
+		respondError(w, http.StatusBadRequest, "refresh token is required")
 		return
 	}
 
-	userID, err := h.jwt.ValidateRefreshToken(req.RefreshToken)
+	userID, err := h.jwt.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
 	}
 
-	hash := HashToken(req.RefreshToken)
+	hash := HashToken(refreshToken)
 	if _, err := h.svc.RefreshToken(r.Context(), hash); err != nil {
 		respondError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
@@ -252,7 +252,7 @@ func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
-	refreshToken, refreshHash, err := h.jwt.GenerateRefreshToken(userID)
+	newRefreshToken, refreshHash, err := h.jwt.GenerateRefreshToken(userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to generate refresh token")
 		return
@@ -262,10 +262,10 @@ func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setRefreshTokenCookie(w, newRefreshToken, time.Now().Add(168*time.Hour))
 	respondJSON(w, http.StatusOK, authResponse{
-		User:         userResponse{ID: userID},
-		Token:        token,
-		RefreshToken: refreshToken,
+		User:  userResponse{ID: userID},
+		Token: token,
 	})
 }
 
@@ -275,27 +275,31 @@ func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body object{refresh_token=string} true "Refresh token to revoke"
 // @Success 204 {object} nil
-// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 400 {object} map[string]any "Refresh token required"
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/auth/logout [post]
 // @Security BearerAuth
 func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		RefreshToken string `json:"refresh_token" validate:"required"`
+	refreshToken := ""
+	if cookie, err := r.Cookie("refresh_token"); err == nil {
+		refreshToken = cookie.Value
 	}
-	if errs := decodeAndValidate(r, &req); errs != nil {
-		respondValidationError(w, errs)
-		return
+	if refreshToken == "" {
+		var req struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if errs := decodeAndValidate(r, &req); errs == nil && req.RefreshToken != "" {
+			refreshToken = req.RefreshToken
+		}
 	}
 
-	hash := HashToken(req.RefreshToken)
-	if err := h.svc.RevokeRefreshToken(r.Context(), hash); err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to revoke refresh token")
-		return
+	if refreshToken != "" {
+		hash := HashToken(refreshToken)
+		h.svc.RevokeRefreshToken(r.Context(), hash)
 	}
 
+	clearRefreshTokenCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -309,9 +313,8 @@ type userResponse struct {
 }
 
 type authResponse struct {
-	User         userResponse `json:"user"`
-	Token        string       `json:"token"`
-	RefreshToken string       `json:"refresh_token"`
+	User  userResponse `json:"user"`
+	Token string       `json:"token"`
 }
 
 func toUserResponse(u domain.User) userResponse {

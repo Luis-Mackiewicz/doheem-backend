@@ -176,10 +176,10 @@ func TestGroupList_Success(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
-	var groups []domain.Group
-	readJSON(t, w.Body.Bytes(), &groups)
-	if len(groups) != 2 {
-		t.Fatalf("expected 2 groups, got %d", len(groups))
+	var result paginatedResponse
+	readJSON(t, w.Body.Bytes(), &result)
+	if result.Total != 2 {
+		t.Fatalf("expected total 2, got %d", result.Total)
 	}
 	groupRepo.AssertExpectations(t)
 }

@@ -66,7 +66,21 @@ func (h *GroupHandler) List(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toGroupResponses(groups))
+	limit, offset := parsePagination(r)
+	items, total := paginate(toGroupResponses(groups), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+}
+
+func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	groupID := r.PathValue("id")
+	members, err := h.svc.ListMembers(r.Context(), groupID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	limit, offset := parsePagination(r)
+	items, total := paginate(toGroupMemberResponses(members), limit, offset)
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 // GetByID gets a group by ID
@@ -207,16 +221,6 @@ func (h *GroupHandler) Activate(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} map[string]any "Internal server error"
 // @Router /api/groups/{id}/members [get]
 // @Security BearerAuth
-func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
-	groupID := r.PathValue("id")
-	members, err := h.svc.ListMembers(r.Context(), groupID)
-	if err != nil {
-		handleError(w, r, err)
-		return
-	}
-	respondJSON(w, http.StatusOK, toGroupMemberResponses(members))
-}
-
 // AddMember adds a member to a group
 // @Summary Add group member
 // @Description Add a new member to a group with a specific role
