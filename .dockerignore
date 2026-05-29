@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.md
+todo.md
+.env
+docker-compose*.yaml
+compose.yaml
+Dockerfile
+.DS_Store
