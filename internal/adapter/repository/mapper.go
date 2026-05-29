@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+
+
 func uuidFromString(s string) pgtype.UUID {
 	var u pgtype.UUID
 	if s != "" {
@@ -29,7 +31,10 @@ func uuidToString(u pgtype.UUID) string {
 
 func numericFromFloat64(f float64) pgtype.Numeric {
 	var n pgtype.Numeric
-	n.Scan(f)
+	if err := n.Scan(strconv.FormatFloat(f, 'f', -1, 64)); err != nil {
+		n.Valid = false
+		return n
+	}
 	return n
 }
 
