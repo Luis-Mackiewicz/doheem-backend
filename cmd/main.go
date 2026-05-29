@@ -12,6 +12,7 @@ import (
 	adapterhttp "doheem-backend/internal/adapter/http"
 	"doheem-backend/internal/adapter/repository"
 	"doheem-backend/internal/adapter/repository/db"
+	"doheem-backend/internal/config"
 	"doheem-backend/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,12 +22,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://doheem_dev_user:simple_pswd@localhost:5432/doheem_dev_db?sslmode=disable"
-	}
+	cfg := config.Load()
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
@@ -65,21 +63,12 @@ func main() {
 	notificationSvc := domain.NewNotificationService(notificationRepo)
 	splitTagSvc := domain.NewSplitTagService(splitTagRepo)
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "doheem-dev-secret-change-in-production"
-	}
-	jwtSvc := adapterhttp.NewJWTService(jwtSecret)
+	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn)
 
 	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
 	srv := &http.Server{
-		Addr:         ":" + port,
+		Addr:         ":" + cfg.Port,
 		Handler:      router.Handler(),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -87,7 +76,7 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("Doheem server is running", "port", port)
+		slog.Info("Doheem server is running", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
