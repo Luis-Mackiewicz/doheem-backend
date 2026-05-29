@@ -1,84 +1,52 @@
 package http
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
-	"sync"
+	"strconv"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type RateLimiter struct {
-	mu       sync.Mutex
-	windows  map[string]*slidingWindow
+	rdb      *redis.Client
 	limit    int
 	interval time.Duration
 }
 
-type slidingWindow struct {
-	timestamps []time.Time
+func NewRateLimiter(rdb *redis.Client, limit int, interval time.Duration) *RateLimiter {
+	return &RateLimiter{rdb: rdb, limit: limit, interval: interval}
 }
 
-func NewRateLimiter(limit int, interval time.Duration) *RateLimiter {
-	rl := &RateLimiter{
-		windows:  make(map[string]*slidingWindow),
-		limit:    limit,
-		interval: interval,
-	}
-	go rl.cleanup(5 * interval)
-	return rl
-}
+func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, time.Duration, error) {
+	now := time.Now().UnixNano()
+	cutoff := now - rl.interval.Nanoseconds()
+	redisKey := "ratelimit:" + key
 
-func (rl *RateLimiter) allow(key string) (bool, time.Duration) {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
+	pipe := rl.rdb.Pipeline()
+	pipe.ZRemRangeByScore(ctx, redisKey, "0", strconv.FormatInt(cutoff, 10))
+	countCmd := pipe.ZCard(ctx, redisKey)
+	pipe.ZAdd(ctx, redisKey, redis.Z{Score: float64(now), Member: now})
+	pipe.Expire(ctx, redisKey, rl.interval)
 
-	now := time.Now()
-	cutoff := now.Add(-rl.interval)
-
-	w, ok := rl.windows[key]
-	if !ok {
-		w = &slidingWindow{}
-		rl.windows[key] = w
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return false, 0, fmt.Errorf("rate limiter: %w", err)
 	}
 
-	filtered := w.timestamps[:0]
-	for _, t := range w.timestamps {
-		if t.After(cutoff) {
-			filtered = append(filtered, t)
-		}
-	}
-	w.timestamps = filtered
-
-	if len(w.timestamps) >= rl.limit {
-		oldest := w.timestamps[0]
-		retryAfter := rl.interval - now.Sub(oldest)
-		return false, retryAfter
+	count, err := countCmd.Result()
+	if err != nil {
+		return false, 0, fmt.Errorf("rate limiter count: %w", err)
 	}
 
-	w.timestamps = append(w.timestamps, now)
-	return true, 0
-}
-
-func (rl *RateLimiter) cleanup(interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for range ticker.C {
-		rl.mu.Lock()
-		cutoff := time.Now().Add(-rl.interval)
-		for key, w := range rl.windows {
-			filtered := w.timestamps[:0]
-			for _, t := range w.timestamps {
-				if t.After(cutoff) {
-					filtered = append(filtered, t)
-				}
-			}
-			if len(filtered) == 0 {
-				delete(rl.windows, key)
-			} else {
-				w.timestamps = filtered
-			}
-		}
-		rl.mu.Unlock()
+	if int(count) > rl.limit {
+		return false, rl.interval, nil
 	}
+
+	return true, 0, nil
 }
 
 func clientIP(r *http.Request) string {
@@ -99,10 +67,15 @@ func RateLimitMiddleware(rl *RateLimiter) func(http.Handler) http.Handler {
 				key = "user:" + userID
 			}
 
-			allowed, retryAfter := rl.allow(key)
+			allowed, retryAfter, err := rl.allow(r.Context(), key)
+			if err != nil {
+				slog.Error("rate limiter error", "error", err)
+				next.ServeHTTP(w, r)
+				return
+			}
 			if !allowed {
 				sec := int(retryAfter.Seconds()) + 1
-				w.Header().Set("Retry-After", itoa(sec))
+				w.Header().Set("Retry-After", strconv.Itoa(sec))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				w.Write([]byte(`{"error":"too many requests"}`))
@@ -112,16 +85,4 @@ func RateLimitMiddleware(rl *RateLimiter) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	buf := make([]byte, 0, 10)
-	for n > 0 {
-		buf = append([]byte{byte('0' + n%10)}, buf...)
-		n /= 10
-	}
-	return string(buf)
 }

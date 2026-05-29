@@ -35,6 +35,7 @@ import (
 	"doheem-backend/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -55,6 +56,19 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("connected to database")
+
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		slog.Error("failed to parse redis URL", "error", err)
+		os.Exit(1)
+	}
+	rdb := redis.NewClient(redisOpts)
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		slog.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer rdb.Close()
+	slog.Info("connected to redis")
 
 	queries := db.New(pool)
 
@@ -85,7 +99,7 @@ func main() {
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 
-	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc)
+	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc, rdb)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

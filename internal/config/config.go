@@ -6,20 +6,22 @@ import (
 )
 
 type Config struct {
-	DatabaseURL        string
-	JWTSecret          string
-	JWTExpiresIn       time.Duration
+	DatabaseURL         string
+	RedisURL            string
+	JWTSecret           string
+	JWTExpiresIn        time.Duration
 	JWTRefreshExpiresIn time.Duration
-	Port               string
+	Port                string
 }
 
 func Load() Config {
 	return Config{
-		DatabaseURL:  envOrDefault("DATABASE_URL", "postgres://doheem_dev_user:simple_pswd@localhost:5432/doheem_dev_db?sslmode=disable"),
-		JWTSecret:    envOrDefault("JWT_SECRET", "doheem-dev-secret-change-in-production"),
-		JWTExpiresIn:       envDurationOrDefault("JWT_EXPIRES_IN", 24*time.Hour),
+		DatabaseURL:         envOrDefault("DATABASE_URL", "postgres://doheem_dev_user:simple_pswd@localhost:5432/doheem_dev_db?sslmode=disable"),
+		RedisURL:            envOrDefault("REDIS_URL", "redis://localhost:6379/0"),
+		JWTSecret:           envOrDefault("JWT_SECRET", "doheem-dev-secret-change-in-production"),
+		JWTExpiresIn:        envDurationOrDefault("JWT_EXPIRES_IN", 24*time.Hour),
 		JWTRefreshExpiresIn: envDurationOrDefault("JWT_REFRESH_EXPIRES_IN", 168*time.Hour),
-		Port:         envOrDefault("PORT", "8080"),
+		Port:                envOrDefault("PORT", "8080"),
 	}
 }
 

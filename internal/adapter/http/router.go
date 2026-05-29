@@ -7,6 +7,7 @@ import (
 	_ "doheem-backend/internal/adapter/http/docs"
 	"doheem-backend/internal/domain"
 
+	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
@@ -20,6 +21,7 @@ type Router struct {
 	invite       *InviteHandler
 	notification *NotificationHandler
 	splitTag     *SplitTagHandler
+	rdb          *redis.Client
 }
 
 func NewRouter(
@@ -32,6 +34,7 @@ func NewRouter(
 	inviteSvc *domain.InviteService,
 	notificationSvc *domain.NotificationService,
 	splitTagSvc *domain.SplitTagService,
+	rdb *redis.Client,
 ) *Router {
 	return &Router{
 		jwt:          jwt,
@@ -43,6 +46,7 @@ func NewRouter(
 		invite:       NewInviteHandler(inviteSvc),
 		notification: NewNotificationHandler(notificationSvc),
 		splitTag:     NewSplitTagHandler(splitTagSvc),
+		rdb:          rdb,
 	}
 }
 
@@ -54,7 +58,7 @@ func (rt *Router) Handler() http.Handler {
 
 	mux.Handle("GET /api/swagger/*", httpSwagger.Handler())
 
-	authLimiter := RateLimitMiddleware(NewRateLimiter(10, time.Minute))
+	authLimiter := RateLimitMiddleware(NewRateLimiter(rt.rdb, 10, time.Minute))
 	mux.Handle("POST /api/auth/register", authLimiter(http.HandlerFunc(rt.user.Register)))
 	mux.Handle("POST /api/auth/login", authLimiter(http.HandlerFunc(rt.user.Login)))
 	mux.Handle("POST /api/auth/refresh", authLimiter(http.HandlerFunc(rt.user.Refresh)))
@@ -128,7 +132,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("DELETE /api/split-tags/{id}/members/{userId}", rt.auth(rt.splitTag.RemoveMember))
 
 	var h http.Handler = mux
-	h = RateLimitMiddleware(NewRateLimiter(100, time.Minute))(h)
+	h = RateLimitMiddleware(NewRateLimiter(rt.rdb, 100, time.Minute))(h)
 	h = LoggingMiddleware(h)
 	h = CORSMiddleware(h)
 	h = RecoveryMiddleware(h)
