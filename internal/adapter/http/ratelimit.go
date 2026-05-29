@@ -69,7 +69,7 @@ func RateLimitMiddleware(rl *RateLimiter) func(http.Handler) http.Handler {
 
 			allowed, retryAfter, err := rl.allow(r.Context(), key)
 			if err != nil {
-				slog.Error("rate limiter error", "error", err)
+				slog.ErrorContext(r.Context(), "rate limiter error", "error", err, "request_id", GetRequestID(r.Context()))
 				next.ServeHTTP(w, r)
 				return
 			}

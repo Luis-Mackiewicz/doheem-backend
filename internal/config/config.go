@@ -13,6 +13,8 @@ type Config struct {
 	JWTExpiresIn        time.Duration
 	JWTRefreshExpiresIn time.Duration
 	Port                string
+	AppEnv              string
+	LogFormat           string
 }
 
 func Load() Config {
@@ -24,6 +26,8 @@ func Load() Config {
 		JWTExpiresIn:        envDurationOrDefault("JWT_EXPIRES_IN", 24*time.Hour),
 		JWTRefreshExpiresIn: envDurationOrDefault("JWT_REFRESH_EXPIRES_IN", 168*time.Hour),
 		Port:                envOrDefault("PORT", "8080"),
+		AppEnv:              envOrDefault("APP_ENV", "development"),
+		LogFormat:           envOrDefault("LOG_FORMAT", "text"),
 	}
 }
 

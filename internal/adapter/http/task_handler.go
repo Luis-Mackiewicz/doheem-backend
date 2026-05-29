@@ -69,7 +69,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:        userID,
 	})
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toTaskResponse(task))
@@ -92,7 +92,7 @@ func (h *TaskHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	tasks, err := h.svc.ListByGroup(r.Context(), groupID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toTaskResponses(tasks))
@@ -115,7 +115,7 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	task, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toTaskResponse(task))
@@ -167,7 +167,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		RecurringEndedAt: recurringEndedAt,
 	})
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toTaskResponse(task))
@@ -189,7 +189,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -226,7 +226,7 @@ func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	}
 	occurrence, err := h.svc.CreateOccurrence(r.Context(), taskID, dueDate, req.Status)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toTaskOccurrenceResponse(occurrence))
@@ -249,7 +249,7 @@ func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("id")
 	occurrences, err := h.svc.ListOccurrencesByTask(r.Context(), taskID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toTaskOccurrenceResponses(occurrences))
@@ -272,7 +272,7 @@ func (h *TaskHandler) CompleteOccurrence(w http.ResponseWriter, r *http.Request)
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
 	if err := h.svc.CompleteOccurrence(r.Context(), id, userID); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -294,7 +294,7 @@ func (h *TaskHandler) CompleteOccurrence(w http.ResponseWriter, r *http.Request)
 func (h *TaskHandler) DiscardOccurrence(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.DiscardOccurrence(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

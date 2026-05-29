@@ -42,7 +42,7 @@ func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Currency: req.Currency,
 	}, userID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toGroupResponse(group))
@@ -63,7 +63,7 @@ func (h *GroupHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groups, err := h.svc.ListByUser(r.Context(), userID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toGroupResponses(groups))
@@ -86,7 +86,7 @@ func (h *GroupHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	group, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toGroupResponse(group))
@@ -122,7 +122,7 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Currency: req.Currency,
 	})
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toGroupResponse(group))
@@ -144,7 +144,7 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *GroupHandler) SoftDelete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.SoftDelete(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -166,7 +166,7 @@ func (h *GroupHandler) SoftDelete(w http.ResponseWriter, r *http.Request) {
 func (h *GroupHandler) Deactivate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Deactivate(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -188,7 +188,7 @@ func (h *GroupHandler) Deactivate(w http.ResponseWriter, r *http.Request) {
 func (h *GroupHandler) Activate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Activate(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -211,7 +211,7 @@ func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("id")
 	members, err := h.svc.ListMembers(r.Context(), groupID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toGroupMemberResponses(members))
@@ -244,7 +244,7 @@ func (h *GroupHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 	}
 	member, err := h.svc.AddMember(r.Context(), groupID, req.UserID, req.Role)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toGroupMemberResponse(member))
@@ -278,7 +278,7 @@ func (h *GroupHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 	}
 	member, err := h.svc.UpdateMemberRole(r.Context(), groupID, userID, req.Role)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toGroupMemberResponse(member))
@@ -302,7 +302,7 @@ func (h *GroupHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("id")
 	userID := r.PathValue("userId")
 	if err := h.svc.RemoveMember(r.Context(), groupID, userID); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

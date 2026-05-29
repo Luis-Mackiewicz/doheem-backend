@@ -45,6 +45,15 @@ func main() {
 
 	cfg := config.Load()
 
+	var slogHandler slog.Handler
+	opts := &slog.HandlerOptions{AddSource: cfg.AppEnv == "development"}
+	if cfg.LogFormat == "json" {
+		slogHandler = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		slogHandler = slog.NewTextHandler(os.Stdout, opts)
+	}
+	slog.SetDefault(slog.New(slogHandler))
+
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
@@ -109,7 +118,7 @@ func main() {
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 
-	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc, rdb)
+	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc, rdb, pool, cfg.KafkaBrokers)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

@@ -46,7 +46,7 @@ func (h *InviteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	invite, err := h.svc.Create(r.Context(), groupID, userID, expiresAt)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toInviteResponse(invite))
@@ -69,7 +69,7 @@ func (h *InviteHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	invites, err := h.svc.ListByGroup(r.Context(), groupID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toInviteWithCreatorResponses(invites))
@@ -90,7 +90,7 @@ func (h *InviteHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	invites, err := h.svc.ListPendingByUser(r.Context(), userID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toInviteWithGroupResponses(invites))
@@ -114,7 +114,7 @@ func (h *InviteHandler) Accept(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
 	if err := h.svc.Use(r.Context(), id, userID); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -136,7 +136,7 @@ func (h *InviteHandler) Accept(w http.ResponseWriter, r *http.Request) {
 func (h *InviteHandler) Revoke(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Revoke(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

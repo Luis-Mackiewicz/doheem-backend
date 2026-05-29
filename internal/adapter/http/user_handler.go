@@ -47,7 +47,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		AvatarURL:    req.AvatarURL,
 	})
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	token, err := h.jwt.GenerateToken(user.ID)
@@ -134,7 +134,7 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	user, err := h.svc.GetByID(r.Context(), userID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toUserResponse(user))
@@ -170,7 +170,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toUserResponse(user))

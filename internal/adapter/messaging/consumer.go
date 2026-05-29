@@ -35,7 +35,7 @@ func StartConsumer(ctx context.Context, brokers string, deps ConsumerDeps) {
 
 	go func() {
 		defer reader.Close()
-		slog.Info("kafka consumer started")
+		slog.Info("kafka consumer started", "group_id", "doheem-notifications", "topic", "doheem.events")
 
 		for {
 			select {
@@ -50,15 +50,26 @@ func StartConsumer(ctx context.Context, brokers string, deps ConsumerDeps) {
 				if ctx.Err() != nil {
 					return
 				}
-				slog.Error("kafka consumer read error", "error", err)
+				slog.Error("kafka consumer read error", "error", err, "offset", msg.Offset, "partition", msg.Partition)
 				continue
 			}
 
 			var event domain.DomainEvent
 			if err := json.Unmarshal(msg.Value, &event); err != nil {
-				slog.Error("kafka consumer unmarshal error", "error", err)
+				slog.Error("kafka consumer unmarshal error",
+					"error", err,
+					"offset", msg.Offset,
+					"partition", msg.Partition,
+				)
 				continue
 			}
+
+			slog.Debug("kafka message received",
+				"offset", msg.Offset,
+				"partition", msg.Partition,
+				"event_type", event.Type,
+				"event_id", event.ID,
+			)
 
 			processEvent(ctx, deps, event)
 		}
@@ -66,11 +77,13 @@ func StartConsumer(ctx context.Context, brokers string, deps ConsumerDeps) {
 }
 
 func processEvent(ctx context.Context, deps ConsumerDeps, event domain.DomainEvent) {
+	log := slog.With("event_id", event.ID, "event_type", event.Type, "group_id", event.GroupID)
+
 	switch event.Type {
 	case "expense.created":
 		members, err := deps.MemberSvc.ListMembers(ctx, event.GroupID)
 		if err != nil {
-			slog.Error("failed to list group members for notification", "error", err)
+			log.Error("failed to list group members for notification", "error", err)
 			return
 		}
 		for _, m := range members {
@@ -82,6 +95,7 @@ func processEvent(ctx context.Context, deps ConsumerDeps, event domain.DomainEve
 				Message: "Uma nova despesa foi adicionada ao grupo.",
 			})
 		}
+		log.Info("notifications created for expense.created", "member_count", len(members))
 
 	case "payment.confirmed":
 		receiverID, _ := event.Payload["receiver_id"].(string)
@@ -97,6 +111,7 @@ func processEvent(ctx context.Context, deps ConsumerDeps, event domain.DomainEve
 				Title:   "Pagamento confirmado",
 				Message: msg,
 			})
+			log.Info("notification created for payment.confirmed", "receiver_id", receiverID)
 		}
 
 	case "task.occurrence.completed":
@@ -111,6 +126,7 @@ func processEvent(ctx context.Context, deps ConsumerDeps, event domain.DomainEve
 				Title:   "Tarefa concluída",
 				Message: "A tarefa \"" + taskTitle + "\" foi concluída.",
 			})
+			log.Info("notification created for task.occurrence.completed", "assigned_to", assignedTo)
 		}
 
 	default:

@@ -7,6 +7,7 @@ import (
 	_ "doheem-backend/internal/adapter/http/docs"
 	"doheem-backend/internal/domain"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
@@ -22,6 +23,8 @@ type Router struct {
 	notification *NotificationHandler
 	splitTag     *SplitTagHandler
 	rdb          *redis.Client
+	pool         *pgxpool.Pool
+	kafkaBrokers string
 }
 
 func NewRouter(
@@ -35,6 +38,8 @@ func NewRouter(
 	notificationSvc *domain.NotificationService,
 	splitTagSvc *domain.SplitTagService,
 	rdb *redis.Client,
+	pool *pgxpool.Pool,
+	kafkaBrokers string,
 ) *Router {
 	return &Router{
 		jwt:          jwt,
@@ -47,13 +52,15 @@ func NewRouter(
 		notification: NewNotificationHandler(notificationSvc),
 		splitTag:     NewSplitTagHandler(splitTagSvc),
 		rdb:          rdb,
+		pool:         pool,
+		kafkaBrokers: kafkaBrokers,
 	}
 }
 
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	health := &HealthHandler{}
+	health := NewHealthHandler(rt.pool, rt.rdb, rt.kafkaBrokers)
 	mux.HandleFunc("GET /", health.HealthCheck)
 
 	mux.Handle("GET /api/swagger/*", httpSwagger.Handler())

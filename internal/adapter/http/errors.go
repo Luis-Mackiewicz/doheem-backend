@@ -8,10 +8,10 @@ import (
 	"doheem-backend/internal/domain"
 )
 
-func handleError(w http.ResponseWriter, err error) {
+func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	status := toHTTPStatus(err)
 	if status >= http.StatusInternalServerError {
-		slog.Error("internal server error", "error", err)
+		slog.ErrorContext(r.Context(), "internal server error", "error", err, "request_id", GetRequestID(r.Context()))
 	}
 	respondError(w, status, err.Error())
 }

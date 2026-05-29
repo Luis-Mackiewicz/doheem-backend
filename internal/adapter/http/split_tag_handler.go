@@ -40,7 +40,7 @@ func (h *SplitTagHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	tag, err := h.svc.Create(r.Context(), groupID, req.Name, userID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toSplitTagResponse(tag))
@@ -63,7 +63,7 @@ func (h *SplitTagHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	tags, err := h.svc.ListByGroup(r.Context(), groupID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toSplitTagResponses(tags))
@@ -91,7 +91,7 @@ func (h *SplitTagHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Delete(r.Context(), id, groupID); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -114,7 +114,7 @@ func (h *SplitTagHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	members, err := h.svc.ListMembers(r.Context(), id)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toSplitTagMemberResponses(members))
@@ -146,7 +146,7 @@ func (h *SplitTagHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 	}
 	member, err := h.svc.AddMember(r.Context(), id, req.UserID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toSplitTagMemberItemResponse(member))
@@ -170,7 +170,7 @@ func (h *SplitTagHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	userID := r.PathValue("userId")
 	if err := h.svc.RemoveMember(r.Context(), id, userID); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

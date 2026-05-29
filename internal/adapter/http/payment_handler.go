@@ -56,7 +56,7 @@ func (h *PaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Notes:       req.Notes,
 	})
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toPaymentResponse(payment))
@@ -79,7 +79,7 @@ func (h *PaymentHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	payments, err := h.svc.ListByGroup(r.Context(), groupID)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toPaymentWithUserResponses(payments))
@@ -102,7 +102,7 @@ func (h *PaymentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	payment, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toPaymentResponse(payment))
@@ -125,7 +125,7 @@ func (h *PaymentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *PaymentHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Confirm(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -148,7 +148,7 @@ func (h *PaymentHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 func (h *PaymentHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Cancel(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -170,7 +170,7 @@ func (h *PaymentHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 func (h *PaymentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		handleError(w, err)
+		handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
