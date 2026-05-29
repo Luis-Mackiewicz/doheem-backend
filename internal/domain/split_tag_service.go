@@ -2,11 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrSplitTagNotFound = errors.New("split tag not found")
 )
 
 type SplitTagService struct {

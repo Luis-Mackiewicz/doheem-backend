@@ -2,16 +2,9 @@ package domain
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
-)
-
-var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrEmailAlreadyExists = errors.New("email already exists")
 )
 
 type UserService struct {

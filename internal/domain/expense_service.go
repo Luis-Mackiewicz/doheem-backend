@@ -5,12 +5,6 @@ import (
 	"errors"
 )
 
-var (
-	ErrExpenseNotFound      = errors.New("expense not found")
-	ErrInvalidSplitTotal    = errors.New("split amounts must equal total amount")
-	ErrCategoryNotFound     = errors.New("category not found")
-)
-
 type ExpenseService struct {
 	expenseRepo      ExpenseRepository
 	expenseSplitRepo ExpenseSplitRepository

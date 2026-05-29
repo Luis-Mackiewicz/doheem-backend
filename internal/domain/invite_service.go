@@ -3,16 +3,8 @@ package domain
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"math/big"
 	"time"
-)
-
-var (
-	ErrInviteNotFound    = errors.New("invite not found")
-	ErrInviteExpired     = errors.New("invite has expired")
-	ErrInviteAlreadyUsed = errors.New("invite already used")
-	ErrInviteRevoked     = errors.New("invite has been revoked")
 )
 
 type InviteService struct {

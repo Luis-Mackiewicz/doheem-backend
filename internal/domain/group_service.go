@@ -2,14 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrGroupNotFound    = errors.New("group not found")
-	ErrMemberNotFound   = errors.New("member not found")
-	ErrMemberAlreadyExists = errors.New("member already exists")
-	ErrCannotRemoveOwner   = errors.New("cannot remove owner from group")
 )
 
 type GroupService struct {

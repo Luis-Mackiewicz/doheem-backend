@@ -1,7 +1,6 @@
 package http
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -78,15 +77,7 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Splits: splits,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidSplitTotal) {
-			respondError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.Is(err, domain.ErrCategoryNotFound) {
-			respondError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toExpenseResponse(expense))
@@ -96,7 +87,7 @@ func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	expenses, err := h.svc.ListByGroup(r.Context(), groupID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toExpenseResponses(expenses))
@@ -106,7 +97,7 @@ func (h *ExpenseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	expense, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toExpenseResponse(expense))
@@ -148,7 +139,7 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	expense, err := h.svc.Update(r.Context(), id, params)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toExpenseResponse(expense))
@@ -157,7 +148,7 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -167,7 +158,7 @@ func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	splits, err := h.svc.ListSplitsByExpense(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toExpenseSplitResponses(splits))
@@ -176,7 +167,7 @@ func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
 func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.MarkSplitAsPaid(r.Context(), id); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -186,7 +177,7 @@ func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request
 	id := r.PathValue("id")
 	installments, err := h.svc.ListInstallmentsByExpense(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toInstallmentResponses(installments))
@@ -195,7 +186,7 @@ func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request
 func (h *ExpenseHandler) MarkInstallmentAsPaid(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.MarkInstallmentAsPaid(r.Context(), id); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -212,7 +203,7 @@ func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) 
 	}
 	category, err := h.svc.CreateCategory(r.Context(), groupID, req.Name)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, toCategoryResponse(category))
@@ -222,7 +213,7 @@ func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 	groupID := r.PathValue("groupId")
 	categories, err := h.svc.ListCategoriesByGroup(r.Context(), groupID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toCategoryResponses(categories))
@@ -240,7 +231,7 @@ func (h *ExpenseHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) 
 	}
 	category, err := h.svc.UpdateCategory(r.Context(), id, req.GroupID, req.Name)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toCategoryResponse(category))
@@ -254,7 +245,7 @@ func (h *ExpenseHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := h.svc.DeleteCategory(r.Context(), id, groupID); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

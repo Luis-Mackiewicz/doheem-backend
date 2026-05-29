@@ -2,13 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrPaymentNotFound = errors.New("payment not found")
-	ErrPaymentAlreadyConfirmed = errors.New("payment already confirmed")
-	ErrPaymentAlreadyCancelled = errors.New("payment already cancelled")
 )
 
 type PaymentService struct {

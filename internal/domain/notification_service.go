@@ -2,11 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrNotificationNotFound = errors.New("notification not found")
 )
 
 type NotificationService struct {

@@ -34,11 +34,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		AvatarURL:    req.AvatarURL,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrEmailAlreadyExists) {
-			respondError(w, http.StatusConflict, err.Error())
-			return
-		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	token, err := h.jwt.GenerateToken(user.ID)
@@ -81,7 +77,7 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	user, err := h.svc.GetByID(r.Context(), userID)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "user not found")
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toUserResponse(user))
@@ -104,11 +100,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
-		if errors.Is(err, domain.ErrEmailAlreadyExists) {
-			respondError(w, http.StatusConflict, err.Error())
-			return
-		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		handleError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, toUserResponse(user))

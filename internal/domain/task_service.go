@@ -2,14 +2,7 @@ package domain
 
 import (
 	"context"
-	"errors"
 	"time"
-)
-
-var (
-	ErrTaskNotFound           = errors.New("task not found")
-	ErrTaskOccurrenceNotFound = errors.New("task occurrence not found")
-	ErrInvalidDueDate         = errors.New("due date must be in the future")
 )
 
 type TaskService struct {
