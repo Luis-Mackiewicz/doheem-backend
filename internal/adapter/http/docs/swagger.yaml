@@ -2,6 +2,8 @@ basePath: /api
 definitions:
   http.authResponse:
     properties:
+      refresh_token:
+        type: string
       token:
         type: string
       user:
@@ -414,6 +416,82 @@ paths:
             additionalProperties: true
             type: object
       summary: Login
+      tags:
+      - Users
+  /api/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revoke a refresh token, preventing further use
+      parameters:
+      - description: Refresh token to revoke
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            refresh_token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Validation error
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout
+      tags:
+      - Users
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get a new access token and refresh token pair using a valid refresh
+        token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            refresh_token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http.authResponse'
+        "400":
+          description: Validation error
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh tokens
       tags:
       - Users
   /api/auth/register:

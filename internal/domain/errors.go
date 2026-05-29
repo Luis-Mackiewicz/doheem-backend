@@ -32,4 +32,8 @@ var (
 	ErrNotificationNotFound = errors.New("notification not found")
 
 	ErrSplitTagNotFound = errors.New("split tag not found")
+
+	ErrRefreshTokenNotFound = errors.New("refresh token not found")
+	ErrRefreshTokenExpired  = errors.New("refresh token has expired")
+	ErrRefreshTokenRevoked  = errors.New("refresh token has been revoked")
 )

@@ -46,9 +46,31 @@ func (m *mockUserRepo) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+type mockRefreshTokenRepo struct{ mock.Mock }
+
+func (m *mockRefreshTokenRepo) Create(ctx context.Context, params domain.CreateRefreshTokenParams) error {
+	args := m.Called(ctx, params)
+	return args.Error(0)
+}
+
+func (m *mockRefreshTokenRepo) FindByHash(ctx context.Context, hash string) (domain.RefreshToken, error) {
+	args := m.Called(ctx, hash)
+	return args.Get(0).(domain.RefreshToken), args.Error(1)
+}
+
+func (m *mockRefreshTokenRepo) Revoke(ctx context.Context, hash string) error {
+	args := m.Called(ctx, hash)
+	return args.Error(0)
+}
+
+func (m *mockRefreshTokenRepo) RevokeAllByUser(ctx context.Context, userID string) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
 func newTestJWT(t *testing.T) *JWTService {
 	t.Helper()
-	return NewJWTService("test-secret", 24*time.Hour)
+	return NewJWTService("test-secret", 24*time.Hour, 168*time.Hour)
 }
 
 func authCtx(ctx context.Context) context.Context {
@@ -64,7 +86,8 @@ func readJSON(t *testing.T, body []byte, v any) {
 
 func TestRegister_Success(t *testing.T) {
 	repo := new(mockUserRepo)
-	svc := domain.NewUserService(repo)
+	refreshRepo := new(mockRefreshTokenRepo)
+	svc := domain.NewUserService(repo, refreshRepo)
 	jwt := newTestJWT(t)
 	handler := NewUserHandler(svc, jwt)
 
@@ -72,6 +95,9 @@ func TestRegister_Success(t *testing.T) {
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(p domain.CreateUserParams) bool {
 		return p.Email == "test@example.com" && p.Name == "Test" && p.PasswordHash != ""
 	})).Return(domain.User{ID: "u1", Name: "Test", Email: "test@example.com"}, nil)
+	refreshRepo.On("Create", mock.Anything, mock.MatchedBy(func(p domain.CreateRefreshTokenParams) bool {
+		return p.UserID == "u1" && p.TokenHash != ""
+	})).Return(nil)
 
 	body := `{"name":"Test","email":"test@example.com","password":"123456"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
@@ -86,14 +112,15 @@ func TestRegister_Success(t *testing.T) {
 	}
 	var data authResponse
 	readJSON(t, w.Body.Bytes(), &data)
-	if data.User.ID != "u1" || data.Token == "" {
+	if data.User.ID != "u1" || data.Token == "" || data.RefreshToken == "" {
 		t.Fatal("unexpected response")
 	}
 	repo.AssertExpectations(t)
+	refreshRepo.AssertExpectations(t)
 }
 
 func TestRegister_ValidationError(t *testing.T) {
-	handler := NewUserHandler(domain.NewUserService(new(mockUserRepo)), newTestJWT(t))
+	handler := NewUserHandler(domain.NewUserService(new(mockUserRepo), new(mockRefreshTokenRepo)), newTestJWT(t))
 
 	body := `{"name":"","email":"bad","password":"12"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
@@ -115,7 +142,7 @@ func TestRegister_ValidationError(t *testing.T) {
 
 func TestRegister_EmailAlreadyExists(t *testing.T) {
 	repo := new(mockUserRepo)
-	svc := domain.NewUserService(repo)
+	svc := domain.NewUserService(repo, new(mockRefreshTokenRepo))
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	repo.On("GetByEmail", mock.Anything, "exists@example.com").Return(domain.User{ID: "existing"}, nil)
@@ -136,11 +163,15 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 
 func TestLogin_Success(t *testing.T) {
 	repo := new(mockUserRepo)
-	svc := domain.NewUserService(repo)
+	refreshRepo := new(mockRefreshTokenRepo)
+	svc := domain.NewUserService(repo, refreshRepo)
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
 	repo.On("GetByEmail", mock.Anything, "test@example.com").Return(domain.User{ID: "u1", PasswordHash: string(hash)}, nil)
+	refreshRepo.On("Create", mock.Anything, mock.MatchedBy(func(p domain.CreateRefreshTokenParams) bool {
+		return p.UserID == "u1" && p.TokenHash != ""
+	})).Return(nil)
 
 	body := `{"email":"test@example.com","password":"correct-password"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
@@ -155,15 +186,16 @@ func TestLogin_Success(t *testing.T) {
 	}
 	var data authResponse
 	readJSON(t, w.Body.Bytes(), &data)
-	if data.Token == "" {
-		t.Fatal("expected token")
+	if data.Token == "" || data.RefreshToken == "" {
+		t.Fatal("expected token and refresh_token")
 	}
 	repo.AssertExpectations(t)
+	refreshRepo.AssertExpectations(t)
 }
 
 func TestGetProfile_Success(t *testing.T) {
 	repo := new(mockUserRepo)
-	svc := domain.NewUserService(repo)
+	svc := domain.NewUserService(repo, new(mockRefreshTokenRepo))
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	repo.On("GetByID", mock.Anything, "test-user-id").Return(domain.User{
@@ -190,7 +222,7 @@ func TestGetProfile_Success(t *testing.T) {
 
 func TestGetProfile_NotFound(t *testing.T) {
 	repo := new(mockUserRepo)
-	svc := domain.NewUserService(repo)
+	svc := domain.NewUserService(repo, new(mockRefreshTokenRepo))
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	repo.On("GetByID", mock.Anything, "test-user-id").Return(domain.User{}, domain.ErrUserNotFound)
@@ -209,7 +241,7 @@ func TestGetProfile_NotFound(t *testing.T) {
 
 func TestChangePassword_Success(t *testing.T) {
 	repo := new(mockUserRepo)
-	svc := domain.NewUserService(repo)
+	svc := domain.NewUserService(repo, new(mockRefreshTokenRepo))
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("old-pass"), bcrypt.DefaultCost)

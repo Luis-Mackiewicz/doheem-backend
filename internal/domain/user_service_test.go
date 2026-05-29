@@ -48,9 +48,33 @@ func (m *mockUserRepo) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+type mockRefreshTokenRepo struct {
+	mock.Mock
+}
+
+func (m *mockRefreshTokenRepo) Create(ctx context.Context, params CreateRefreshTokenParams) error {
+	args := m.Called(ctx, params)
+	return args.Error(0)
+}
+
+func (m *mockRefreshTokenRepo) FindByHash(ctx context.Context, hash string) (RefreshToken, error) {
+	args := m.Called(ctx, hash)
+	return args.Get(0).(RefreshToken), args.Error(1)
+}
+
+func (m *mockRefreshTokenRepo) Revoke(ctx context.Context, hash string) error {
+	args := m.Called(ctx, hash)
+	return args.Error(0)
+}
+
+func (m *mockRefreshTokenRepo) RevokeAllByUser(ctx context.Context, userID string) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
 func TestUserService_Register_Success(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	mockRepo.On("GetByEmail", ctx, "test@example.com").Return(User{}, nil)
@@ -72,7 +96,7 @@ func TestUserService_Register_Success(t *testing.T) {
 
 func TestUserService_Register_EmailAlreadyExists(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	existing := User{ID: "1", Email: "test@example.com"}
@@ -91,7 +115,7 @@ func TestUserService_Register_EmailAlreadyExists(t *testing.T) {
 
 func TestUserService_Login_Success(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
@@ -107,7 +131,7 @@ func TestUserService_Login_Success(t *testing.T) {
 
 func TestUserService_Login_InvalidCredentials(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.DefaultCost)
@@ -123,7 +147,7 @@ func TestUserService_Login_InvalidCredentials(t *testing.T) {
 
 func TestUserService_Login_UserNotFound(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	mockRepo.On("GetByEmail", ctx, "nonexistent@example.com").Return(User{}, assert.AnError)
@@ -137,7 +161,7 @@ func TestUserService_Login_UserNotFound(t *testing.T) {
 
 func TestUserService_GetByID_Success(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	mockRepo.On("GetByID", ctx, "1").Return(User{ID: "1", Name: "Test"}, nil)
@@ -151,7 +175,7 @@ func TestUserService_GetByID_Success(t *testing.T) {
 
 func TestUserService_GetByID_NotFound(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	mockRepo.On("GetByID", ctx, "999").Return(User{}, assert.AnError)
@@ -165,7 +189,7 @@ func TestUserService_GetByID_NotFound(t *testing.T) {
 
 func TestUserService_Update_Success(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	newEmail := "new@example.com"
@@ -182,7 +206,7 @@ func TestUserService_Update_Success(t *testing.T) {
 
 func TestUserService_Update_EmailAlreadyExists(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	newEmail := "other@example.com"
@@ -197,7 +221,7 @@ func TestUserService_Update_EmailAlreadyExists(t *testing.T) {
 
 func TestUserService_UpdatePassword_Success(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("old-password"), bcrypt.DefaultCost)
@@ -214,7 +238,7 @@ func TestUserService_UpdatePassword_Success(t *testing.T) {
 
 func TestUserService_UpdatePassword_InvalidOldPassword(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte("actual-password"), bcrypt.DefaultCost)
@@ -228,7 +252,7 @@ func TestUserService_UpdatePassword_InvalidOldPassword(t *testing.T) {
 
 func TestUserService_Delete(t *testing.T) {
 	mockRepo := new(mockUserRepo)
-	svc := NewUserService(mockRepo)
+	svc := NewUserService(mockRepo, new(mockRefreshTokenRepo))
 	ctx := context.Background()
 
 	mockRepo.On("Delete", ctx, "1").Return(nil)

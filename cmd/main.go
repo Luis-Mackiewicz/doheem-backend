@@ -72,8 +72,9 @@ func main() {
 	inviteRepo := repository.NewInviteRepo(queries)
 	notificationRepo := repository.NewNotificationRepo(queries)
 	splitTagRepo := repository.NewSplitTagRepo(queries)
+	refreshTokenRepo := repository.NewRefreshTokenRepo(queries)
 
-	userSvc := domain.NewUserService(userRepo)
+	userSvc := domain.NewUserService(userRepo, refreshTokenRepo)
 	groupSvc := domain.NewGroupService(groupRepo, groupMemberRepo)
 	expenseSvc := domain.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo)
 	paymentSvc := domain.NewPaymentService(paymentRepo, paymentAttachmentRepo)
@@ -82,7 +83,7 @@ func main() {
 	notificationSvc := domain.NewNotificationService(notificationRepo)
 	splitTagSvc := domain.NewSplitTagService(splitTagRepo)
 
-	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn)
+	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 
 	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc)
 

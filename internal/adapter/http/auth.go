@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,14 +12,16 @@ import (
 )
 
 type JWTService struct {
-	secret   []byte
-	expiresIn time.Duration
+	secret          []byte
+	accessExpiresIn  time.Duration
+	refreshExpiresIn time.Duration
 }
 
-func NewJWTService(secret string, expiresIn time.Duration) *JWTService {
+func NewJWTService(secret string, accessExpiresIn, refreshExpiresIn time.Duration) *JWTService {
 	return &JWTService{
-		secret:    []byte(secret),
-		expiresIn: expiresIn,
+		secret:           []byte(secret),
+		accessExpiresIn:  accessExpiresIn,
+		refreshExpiresIn: refreshExpiresIn,
 	}
 }
 
@@ -34,7 +37,7 @@ func (s *JWTService) GenerateToken(userID string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(s.expiresIn)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.accessExpiresIn)),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -56,6 +59,35 @@ func (s *JWTService) ValidateToken(tokenStr string) (string, error) {
 		return "", fmt.Errorf("invalid token claims")
 	}
 	return claims.UserID, nil
+}
+
+func (s *JWTService) GenerateRefreshToken(userID string) (token string, hash string, err error) {
+	now := time.Now()
+	claims := Claims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.refreshExpiresIn)),
+		},
+	}
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token, err = t.SignedString(s.secret)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to sign refresh token: %w", err)
+	}
+	h := sha256.Sum256([]byte(token))
+	hash = fmt.Sprintf("%x", h)
+	return token, hash, nil
+}
+
+func (s *JWTService) ValidateRefreshToken(tokenStr string) (string, error) {
+	return s.ValidateToken(tokenStr)
+}
+
+func HashToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return fmt.Sprintf("%x", h)
 }
 
 func (s *JWTService) AuthMiddleware(next http.Handler) http.Handler {

@@ -55,6 +55,8 @@ func (rt *Router) Handler() http.Handler {
 
 	mux.HandleFunc("POST /api/auth/register", rt.user.Register)
 	mux.HandleFunc("POST /api/auth/login", rt.user.Login)
+	mux.HandleFunc("POST /api/auth/refresh", rt.user.Refresh)
+	mux.Handle("POST /api/auth/logout", rt.auth(rt.user.Logout))
 
 	mux.Handle("GET /api/users/me", rt.auth(rt.user.GetProfile))
 	mux.Handle("PUT /api/users/me", rt.auth(rt.user.UpdateProfile))

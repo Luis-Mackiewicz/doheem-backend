@@ -130,6 +130,15 @@ type PaymentAttachment struct {
 	UploadedAt pgtype.Timestamptz
 }
 
+type RefreshToken struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	TokenHash string
+	ExpiresAt pgtype.Timestamptz
+	RevokedAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type SplitTag struct {
 	ID        pgtype.UUID
 	GroupID   pgtype.UUID

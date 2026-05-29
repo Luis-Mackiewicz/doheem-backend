@@ -3,16 +3,20 @@ package domain
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/google/uuid"
 )
 
 type UserService struct {
-	repo UserRepository
+	repo          UserRepository
+	refreshRepo   RefreshTokenRepository
 }
 
-func NewUserService(repo UserRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo UserRepository, refreshRepo RefreshTokenRepository) *UserService {
+	return &UserService{repo: repo, refreshRepo: refreshRepo}
 }
 
 func (s *UserService) Register(ctx context.Context, params CreateUserParams) (User, error) {
@@ -93,4 +97,36 @@ func (s *UserService) UpdatePassword(ctx context.Context, id, oldPassword, newPa
 
 func (s *UserService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
+}
+
+func (s *UserService) StoreRefreshToken(ctx context.Context, userID, tokenHash string, expiresAt time.Time) error {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return fmt.Errorf("failed to generate uuid: %w", err)
+	}
+	return s.refreshRepo.Create(ctx, CreateRefreshTokenParams{
+		ID:        id.String(),
+		UserID:    userID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	})
+}
+
+func (s *UserService) RefreshToken(ctx context.Context, refreshTokenStr string) (RefreshToken, error) {
+	rt, err := s.refreshRepo.FindByHash(ctx, refreshTokenStr)
+	if err != nil {
+		return RefreshToken{}, err
+	}
+	if rt.ExpiresAt.Before(time.Now()) {
+		return RefreshToken{}, ErrRefreshTokenExpired
+	}
+	return rt, nil
+}
+
+func (s *UserService) RevokeRefreshToken(ctx context.Context, hash string) error {
+	return s.refreshRepo.Revoke(ctx, hash)
+}
+
+func (s *UserService) RevokeAllUserRefreshTokens(ctx context.Context, userID string) error {
+	return s.refreshRepo.RevokeAllByUser(ctx, userID)
 }
