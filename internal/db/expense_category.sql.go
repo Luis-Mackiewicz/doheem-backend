@@ -12,23 +12,23 @@ import (
 )
 
 const createExpenseCategory = `-- name: CreateExpenseCategory :one
-INSERT INTO expense_categories (group_id, name)
+INSERT INTO expense_categories (slug, label)
 VALUES ($1, $2)
-RETURNING id, group_id, name, created_at
+RETURNING id, slug, label, created_at
 `
 
 type CreateExpenseCategoryParams struct {
-	GroupID pgtype.UUID
-	Name    string
+	Slug  string
+	Label string
 }
 
 func (q *Queries) CreateExpenseCategory(ctx context.Context, arg CreateExpenseCategoryParams) (ExpenseCategory, error) {
-	row := q.db.QueryRow(ctx, createExpenseCategory, arg.GroupID, arg.Name)
+	row := q.db.QueryRow(ctx, createExpenseCategory, arg.Slug, arg.Label)
 	var i ExpenseCategory
 	err := row.Scan(
 		&i.ID,
-		&i.GroupID,
-		&i.Name,
+		&i.Slug,
+		&i.Label,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -36,21 +36,16 @@ func (q *Queries) CreateExpenseCategory(ctx context.Context, arg CreateExpenseCa
 
 const deleteExpenseCategory = `-- name: DeleteExpenseCategory :exec
 DELETE FROM expense_categories
-WHERE id = $1 AND group_id = $2
+WHERE id = $1
 `
 
-type DeleteExpenseCategoryParams struct {
-	ID      pgtype.UUID
-	GroupID pgtype.UUID
-}
-
-func (q *Queries) DeleteExpenseCategory(ctx context.Context, arg DeleteExpenseCategoryParams) error {
-	_, err := q.db.Exec(ctx, deleteExpenseCategory, arg.ID, arg.GroupID)
+func (q *Queries) DeleteExpenseCategory(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteExpenseCategory, id)
 	return err
 }
 
 const getExpenseCategoryByID = `-- name: GetExpenseCategoryByID :one
-SELECT id, group_id, name, created_at FROM expense_categories
+SELECT id, slug, label, created_at FROM expense_categories
 WHERE id = $1
 `
 
@@ -59,21 +54,20 @@ func (q *Queries) GetExpenseCategoryByID(ctx context.Context, id pgtype.UUID) (E
 	var i ExpenseCategory
 	err := row.Scan(
 		&i.ID,
-		&i.GroupID,
-		&i.Name,
+		&i.Slug,
+		&i.Label,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const listExpenseCategoriesByGroup = `-- name: ListExpenseCategoriesByGroup :many
-SELECT id, group_id, name, created_at FROM expense_categories
-WHERE group_id = $1
-ORDER BY name
+const listExpenseCategories = `-- name: ListExpenseCategories :many
+SELECT id, slug, label, created_at FROM expense_categories
+ORDER BY label
 `
 
-func (q *Queries) ListExpenseCategoriesByGroup(ctx context.Context, groupID pgtype.UUID) ([]ExpenseCategory, error) {
-	rows, err := q.db.Query(ctx, listExpenseCategoriesByGroup, groupID)
+func (q *Queries) ListExpenseCategories(ctx context.Context) ([]ExpenseCategory, error) {
+	rows, err := q.db.Query(ctx, listExpenseCategories)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +77,8 @@ func (q *Queries) ListExpenseCategoriesByGroup(ctx context.Context, groupID pgty
 		var i ExpenseCategory
 		if err := rows.Scan(
 			&i.ID,
-			&i.GroupID,
-			&i.Name,
+			&i.Slug,
+			&i.Label,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -99,24 +93,25 @@ func (q *Queries) ListExpenseCategoriesByGroup(ctx context.Context, groupID pgty
 
 const updateExpenseCategory = `-- name: UpdateExpenseCategory :one
 UPDATE expense_categories
-SET name = $3
-WHERE id = $1 AND group_id = $2
-RETURNING id, group_id, name, created_at
+SET slug = $2,
+    label = $3
+WHERE id = $1
+RETURNING id, slug, label, created_at
 `
 
 type UpdateExpenseCategoryParams struct {
-	ID      pgtype.UUID
-	GroupID pgtype.UUID
-	Name    string
+	ID    pgtype.UUID
+	Slug  string
+	Label string
 }
 
 func (q *Queries) UpdateExpenseCategory(ctx context.Context, arg UpdateExpenseCategoryParams) (ExpenseCategory, error) {
-	row := q.db.QueryRow(ctx, updateExpenseCategory, arg.ID, arg.GroupID, arg.Name)
+	row := q.db.QueryRow(ctx, updateExpenseCategory, arg.ID, arg.Slug, arg.Label)
 	var i ExpenseCategory
 	err := row.Scan(
 		&i.ID,
-		&i.GroupID,
-		&i.Name,
+		&i.Slug,
+		&i.Label,
 		&i.CreatedAt,
 	)
 	return i, err

@@ -10,7 +10,6 @@ import (
 type ExpenseService struct {
 	expenseRepo      ExpenseRepository
 	expenseSplitRepo ExpenseSplitRepository
-	installmentRepo  InstallmentRepository
 	categoryRepo     ExpenseCategoryRepository
 	memberRepo       group.GroupMemberRepository
 }
@@ -18,22 +17,20 @@ type ExpenseService struct {
 func NewExpenseService(
 	expenseRepo ExpenseRepository,
 	expenseSplitRepo ExpenseSplitRepository,
-	installmentRepo InstallmentRepository,
 	categoryRepo ExpenseCategoryRepository,
 	memberRepo group.GroupMemberRepository,
 ) *ExpenseService {
 	return &ExpenseService{
 		expenseRepo:      expenseRepo,
 		expenseSplitRepo: expenseSplitRepo,
-		installmentRepo:  installmentRepo,
 		categoryRepo:     categoryRepo,
 		memberRepo:       memberRepo,
 	}
 }
 
 type CreateExpenseWithSplitsParams struct {
-	Expense   CreateExpenseParams
-	Splits    []CreateExpenseSplitParams
+	Expense CreateExpenseParams
+	Splits  []CreateExpenseSplitParams
 }
 
 func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSplitsParams) (Expense, error) {
@@ -41,39 +38,47 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 	for _, sp := range params.Splits {
 		totalFromSplits += sp.Amount
 	}
-	if totalFromSplits > 0 && totalFromSplits != params.Expense.TotalAmount {
+	if totalFromSplits > 0 && totalFromSplits != params.Expense.Amount {
 		return Expense{}, ErrInvalidSplitTotal
 	}
 
-	if params.Expense.CategoryID != nil {
-		_, err := s.categoryRepo.GetByID(ctx, *params.Expense.CategoryID)
-		if err != nil {
-			return Expense{}, ErrCategoryNotFound
-		}
+	_, err := s.categoryRepo.GetByID(ctx, params.Expense.CategoryID)
+	if err != nil {
+		return Expense{}, ErrCategoryNotFound
 	}
 
-	if params.Expense.IsInstallment && params.Expense.InstallmentCount != nil {
-		installmentAmount := params.Expense.TotalAmount / float64(*params.Expense.InstallmentCount)
-		if params.Expense.DueDate == nil {
-			return Expense{}, errors.New("due date is required for installment expenses")
+	if params.Expense.Installments > 1 {
+		if params.Expense.FirstDueDate == nil {
+			return Expense{}, errors.New("first_due_date is required for installment expenses")
 		}
-		expense, err := s.expenseRepo.Create(ctx, params.Expense)
+
+		parent := params.Expense
+		parent.ParentExpenseID = nil
+		parent.InstallmentIndex = nil
+		parent.InstallmentTotal = nil
+		expense, err := s.expenseRepo.Create(ctx, parent)
 		if err != nil {
 			return Expense{}, err
 		}
 
-		installmentParams := make([]CreateInstallmentParams, *params.Expense.InstallmentCount)
-		for i := int16(0); i < *params.Expense.InstallmentCount; i++ {
-			dueDate := params.Expense.DueDate.AddDate(0, int(i), 0)
-			installmentParams[i] = CreateInstallmentParams{
-				InstallmentNumber: i + 1,
-				Amount:            installmentAmount,
-				DueDate:           dueDate,
+		installmentAmount := expense.Amount / float64(expense.Installments)
+		for i := int32(1); i <= expense.Installments; i++ {
+			index := i
+			total := expense.Installments
+			childParams := params.Expense
+			childParams.Amount = installmentAmount
+			childParams.DueDate = expense.FirstDueDate.AddDate(0, int(i-1), 0)
+			childParams.Installments = 1
+			childParams.FirstDueDate = nil
+			childParams.IsFixed = false
+			childParams.ParentExpenseID = &expense.ID
+			childParams.InstallmentIndex = &index
+			childParams.InstallmentTotal = &total
+
+			_, err := s.expenseRepo.Create(ctx, childParams)
+			if err != nil {
+				return Expense{}, err
 			}
-		}
-		_, err = s.installmentRepo.CreateMany(ctx, expense.ID, installmentParams)
-		if err != nil {
-			return Expense{}, err
 		}
 
 		if len(params.Splits) > 0 {
@@ -121,6 +126,10 @@ func (s *ExpenseService) ListByCategory(ctx context.Context, categoryID string) 
 	return s.expenseRepo.ListByCategory(ctx, categoryID)
 }
 
+func (s *ExpenseService) ListByParent(ctx context.Context, parentID string) ([]Expense, error) {
+	return s.expenseRepo.ListByParent(ctx, parentID)
+}
+
 func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExpenseParams) (Expense, error) {
 	return s.expenseRepo.Update(ctx, id, params)
 }
@@ -149,26 +158,18 @@ func (s *ExpenseService) ListSplitsByUser(ctx context.Context, userID, groupID s
 	return s.expenseSplitRepo.ListByUser(ctx, userID, groupID)
 }
 
-func (s *ExpenseService) MarkInstallmentAsPaid(ctx context.Context, installmentID string) error {
-	return s.installmentRepo.MarkAsPaid(ctx, installmentID)
+func (s *ExpenseService) CreateCategory(ctx context.Context, slug, label string) (ExpenseCategory, error) {
+	return s.categoryRepo.Create(ctx, slug, label)
 }
 
-func (s *ExpenseService) ListInstallmentsByExpense(ctx context.Context, expenseID string) ([]Installment, error) {
-	return s.installmentRepo.ListByExpense(ctx, expenseID)
+func (s *ExpenseService) ListAllCategories(ctx context.Context) ([]ExpenseCategory, error) {
+	return s.categoryRepo.ListAll(ctx)
 }
 
-func (s *ExpenseService) CreateCategory(ctx context.Context, groupID, name string) (ExpenseCategory, error) {
-	return s.categoryRepo.Create(ctx, groupID, name)
+func (s *ExpenseService) UpdateCategory(ctx context.Context, id, slug, label string) (ExpenseCategory, error) {
+	return s.categoryRepo.Update(ctx, id, slug, label)
 }
 
-func (s *ExpenseService) ListCategoriesByGroup(ctx context.Context, groupID string) ([]ExpenseCategory, error) {
-	return s.categoryRepo.ListByGroup(ctx, groupID)
-}
-
-func (s *ExpenseService) UpdateCategory(ctx context.Context, id, groupID, name string) (ExpenseCategory, error) {
-	return s.categoryRepo.Update(ctx, id, groupID, name)
-}
-
-func (s *ExpenseService) DeleteCategory(ctx context.Context, id, groupID string) error {
-	return s.categoryRepo.Delete(ctx, id, groupID)
+func (s *ExpenseService) DeleteCategory(ctx context.Context, id string) error {
+	return s.categoryRepo.Delete(ctx, id)
 }

@@ -31,16 +31,8 @@ func (m *mockGroupRepo) Update(ctx context.Context, id string, params group.Upda
 	args := m.Called(ctx, id, params)
 	return args.Get(0).(group.Group), args.Error(1)
 }
-func (m *mockGroupRepo) SoftDelete(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-func (m *mockGroupRepo) Deactivate(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-func (m *mockGroupRepo) Activate(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
+func (m *mockGroupRepo) RegenerateInviteToken(ctx context.Context, id, token string) error {
+	args := m.Called(ctx, id, token)
 	return args.Error(0)
 }
 
@@ -58,19 +50,19 @@ func (m *mockGroupMemberRepo) ListByGroup(ctx context.Context, groupID string) (
 	args := m.Called(ctx, groupID)
 	return args.Get(0).([]group.GroupMemberWithUser), args.Error(1)
 }
-func (m *mockGroupMemberRepo) Create(ctx context.Context, groupID, userID, role string) (group.GroupMember, error) {
-	args := m.Called(ctx, groupID, userID, role)
+func (m *mockGroupMemberRepo) Create(ctx context.Context, groupID, userID string, isAdmin bool) (group.GroupMember, error) {
+	args := m.Called(ctx, groupID, userID, isAdmin)
 	return args.Get(0).(group.GroupMember), args.Error(1)
 }
-func (m *mockGroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID, role string) (group.GroupMember, error) {
-	args := m.Called(ctx, groupID, userID, role)
+func (m *mockGroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID string, isAdmin bool) (group.GroupMember, error) {
+	args := m.Called(ctx, groupID, userID, isAdmin)
 	return args.Get(0).(group.GroupMember), args.Error(1)
 }
 func (m *mockGroupMemberRepo) Remove(ctx context.Context, groupID, userID string) error {
 	args := m.Called(ctx, groupID, userID)
 	return args.Error(0)
 }
-func (m *mockGroupMemberRepo) CountActive(ctx context.Context, groupID string) (int64, error) {
+func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64, error) {
 	args := m.Called(ctx, groupID)
 	return args.Get(0).(int64), args.Error(1)
 }
@@ -81,10 +73,10 @@ func TestGroupCreate_Success(t *testing.T) {
 	svc := group.NewGroupService(groupRepo, memberRepo)
 	handler := NewGroupHandler(svc)
 
-	groupRepo.On("Create", mock.Anything, mock.Anything).Return(group.Group{ID: "g1", Name: "My Group", Currency: "BRL"}, nil)
-	memberRepo.On("Create", mock.Anything, "g1", "test-user-id", "owner").Return(group.GroupMember{}, nil)
+	groupRepo.On("Create", mock.Anything, mock.Anything).Return(group.Group{ID: "g1", Name: "My Group"}, nil)
+	memberRepo.On("Create", mock.Anything, "g1", "test-user-id", true).Return(group.GroupMember{}, nil)
 
-	body := `{"name":"My Group","currency":"BRL"}`
+	body := `{"name":"My Group"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	r = r.WithContext(authCtx(r.Context()))
@@ -103,7 +95,7 @@ func TestGroupCreate_Success(t *testing.T) {
 func TestGroupCreate_ValidationError(t *testing.T) {
 	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo)))
 
-	body := `{"name":"","currency":"BR"}`
+	body := `{"name":""}`
 	r := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	r = r.WithContext(authCtx(r.Context()))
@@ -180,46 +172,6 @@ func TestGroupList_Success(t *testing.T) {
 	readJSON(t, w.Body.Bytes(), &result)
 	if result.Total != 2 {
 		t.Fatalf("expected total 2, got %d", result.Total)
-	}
-	groupRepo.AssertExpectations(t)
-}
-
-func TestGroupSoftDelete_Success(t *testing.T) {
-	groupRepo := new(mockGroupRepo)
-	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
-	handler := NewGroupHandler(svc)
-
-	groupRepo.On("SoftDelete", mock.Anything, "g1").Return(nil)
-
-	r := httptest.NewRequest(http.MethodDelete, "/api/groups/g1", nil)
-	r = r.WithContext(authCtx(r.Context()))
-	r.SetPathValue("id", "g1")
-	w := httptest.NewRecorder()
-
-	handler.SoftDelete(w, r)
-
-	if w.Result().StatusCode != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", w.Result().StatusCode)
-	}
-	groupRepo.AssertExpectations(t)
-}
-
-func TestGroupDeactivate_Success(t *testing.T) {
-	groupRepo := new(mockGroupRepo)
-	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
-	handler := NewGroupHandler(svc)
-
-	groupRepo.On("Deactivate", mock.Anything, "g1").Return(nil)
-
-	r := httptest.NewRequest(http.MethodPatch, "/api/groups/g1/deactivate", nil)
-	r = r.WithContext(authCtx(r.Context()))
-	r.SetPathValue("id", "g1")
-	w := httptest.NewRecorder()
-
-	handler.Deactivate(w, r)
-
-	if w.Result().StatusCode != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", w.Result().StatusCode)
 	}
 	groupRepo.AssertExpectations(t)
 }

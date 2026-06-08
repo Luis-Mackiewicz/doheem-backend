@@ -2,6 +2,7 @@ package expense
 
 import (
 	"context"
+	"time"
 
 	"doheem-backend/internal/db"
 
@@ -48,22 +49,30 @@ func (r *ExpenseRepo) ListByCategory(ctx context.Context, categoryID string) ([]
 	return toExpenses(expenses), nil
 }
 
-func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (Expense, error) {
-	var dueDate pgtype.Date
-	if params.DueDate != nil {
-		dueDate = db.DateFromTime(*params.DueDate)
+func (r *ExpenseRepo) ListByParent(ctx context.Context, parentID string) ([]Expense, error) {
+	expenses, err := r.q.ListExpensesByParent(ctx, db.UUIDFromString(parentID))
+	if err != nil {
+		return nil, err
 	}
+	return toExpenses(expenses), nil
+}
+
+func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (Expense, error) {
 	e, err := r.q.CreateExpense(ctx, db.CreateExpenseParams{
 		GroupID:          db.UUIDFromString(params.GroupID),
-		CreatedBy:        db.UUIDFromString(params.CreatedBy),
 		Description:      params.Description,
-		TotalAmount:      db.NumericFromFloat64(params.TotalAmount),
-		ExpenseDate:      db.DateFromTime(params.ExpenseDate),
-		DueDate:          dueDate,
-		CategoryID:       db.UUIDFromStringPtr(params.CategoryID),
-		SplitType:        params.SplitType,
-		IsInstallment:    params.IsInstallment,
-		InstallmentCount: db.Int2FromInt16Ptr(params.InstallmentCount),
+		Amount:           db.NumericFromFloat64(params.Amount),
+		CategoryID:       db.UUIDFromString(params.CategoryID),
+		CompetenceDate:   db.DateFromTime(params.CompetenceDate),
+		DueDate:          db.DateFromTime(params.DueDate),
+		PaidBy:           db.UUIDFromString(params.PaidBy),
+		SplitMode:        params.SplitMode,
+		Installments:     params.Installments,
+		FirstDueDate:     dateFromTimePtr(params.FirstDueDate),
+		IsFixed:          params.IsFixed,
+		ParentExpenseID:  db.UUIDFromStringPtr(params.ParentExpenseID),
+		InstallmentIndex: int4FromInt32Ptr(params.InstallmentIndex),
+		InstallmentTotal: int4FromInt32Ptr(params.InstallmentTotal),
 	})
 	if err != nil {
 		return Expense{}, err
@@ -72,34 +81,14 @@ func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (E
 }
 
 func (r *ExpenseRepo) Update(ctx context.Context, id string, params UpdateExpenseParams) (Expense, error) {
-	var desc string
-	if params.Description != nil {
-		desc = *params.Description
-	}
-	var total pgtype.Numeric
-	if params.TotalAmount != nil {
-		total = db.NumericFromFloat64(*params.TotalAmount)
-	}
-	var expDate pgtype.Date
-	if params.ExpenseDate != nil {
-		expDate = db.DateFromTime(*params.ExpenseDate)
-	}
-	var dueDate pgtype.Date
-	if params.DueDate != nil {
-		dueDate = db.DateFromTime(*params.DueDate)
-	}
-	var split string
-	if params.SplitType != nil {
-		split = *params.SplitType
-	}
 	e, err := r.q.UpdateExpense(ctx, db.UpdateExpenseParams{
-		ID:          db.UUIDFromString(id),
-		Description: desc,
-		TotalAmount: total,
-		ExpenseDate: expDate,
-		DueDate:     dueDate,
-		CategoryID:  db.UUIDFromStringPtr(params.CategoryID),
-		SplitType:   split,
+		ID:             db.UUIDFromString(id),
+		Description:    deptrStr(params.Description),
+		Amount:         deptrNumeric(params.Amount),
+		CompetenceDate: deptrDate(params.CompetenceDate),
+		DueDate:        deptrDate(params.DueDate),
+		CategoryID:     db.UUIDFromStringPtrOrZero(params.CategoryID),
+		SplitMode:      deptrStr(params.SplitMode),
 	})
 	if err != nil {
 		return Expense{}, err
@@ -111,6 +100,10 @@ func (r *ExpenseRepo) Delete(ctx context.Context, id string) error {
 	return r.q.DeleteExpense(ctx, db.UUIDFromString(id))
 }
 
+func (r *ExpenseRepo) DeleteByParent(ctx context.Context, parentID string) error {
+	return r.q.DeleteExpensesByParent(ctx, db.UUIDFromString(parentID))
+}
+
 func (r *ExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (float64, error) {
 	val, err := r.q.GetTotalExpensesByGroup(ctx, db.UUIDFromString(groupID))
 	if err != nil {
@@ -120,18 +113,30 @@ func (r *ExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (floa
 }
 
 func toExpense(e db.Expense) Expense {
+	var installmentIndex *int32
+	if e.InstallmentIndex.Valid {
+		installmentIndex = &e.InstallmentIndex.Int32
+	}
+	var installmentTotal *int32
+	if e.InstallmentTotal.Valid {
+		installmentTotal = &e.InstallmentTotal.Int32
+	}
 	return Expense{
 		ID:               db.UUIDToString(e.ID),
 		GroupID:          db.UUIDToString(e.GroupID),
-		CreatedBy:        db.UUIDToString(e.CreatedBy),
 		Description:      e.Description,
-		TotalAmount:      db.NumericToFloat64(e.TotalAmount),
-		ExpenseDate:      e.ExpenseDate.Time,
-		DueDate:          db.DateToTimePtr(e.DueDate),
-		CategoryID:       db.UUIDToStringPtr(e.CategoryID),
-		SplitType:        e.SplitType,
-		IsInstallment:    e.IsInstallment,
-		InstallmentCount: db.Int2ToInt16Ptr(e.InstallmentCount),
+		Amount:           db.NumericToFloat64(e.Amount),
+		CategoryID:       db.UUIDToString(e.CategoryID),
+		CompetenceDate:   e.CompetenceDate.Time,
+		DueDate:          e.DueDate.Time,
+		PaidBy:           db.UUIDToString(e.PaidBy),
+		SplitMode:        e.SplitMode,
+		Installments:     e.Installments,
+		FirstDueDate:     db.DateToTimePtr(e.FirstDueDate),
+		IsFixed:          e.IsFixed,
+		ParentExpenseID:  db.UUIDToStringPtr(e.ParentExpenseID),
+		InstallmentIndex: installmentIndex,
+		InstallmentTotal: installmentTotal,
 		CreatedAt:        e.CreatedAt.Time,
 		UpdatedAt:        e.UpdatedAt.Time,
 	}
@@ -143,4 +148,39 @@ func toExpenses(expenses []db.Expense) []Expense {
 		result[i] = toExpense(e)
 	}
 	return result
+}
+
+func deptrStr(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
+func deptrNumeric(f *float64) pgtype.Numeric {
+	if f != nil {
+		return db.NumericFromFloat64(*f)
+	}
+	return pgtype.Numeric{}
+}
+
+func deptrDate(t *time.Time) pgtype.Date {
+	if t != nil {
+		return db.DateFromTime(*t)
+	}
+	return pgtype.Date{}
+}
+
+func dateFromTimePtr(t *time.Time) pgtype.Date {
+	if t != nil {
+		return db.DateFromTime(*t)
+	}
+	return pgtype.Date{}
+}
+
+func int4FromInt32Ptr(i *int32) pgtype.Int4 {
+	if i != nil {
+		return pgtype.Int4{Int32: *i, Valid: true}
+	}
+	return pgtype.Int4{}
 }

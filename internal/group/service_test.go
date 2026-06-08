@@ -32,18 +32,8 @@ func (m *mockGroupRepo) Update(ctx context.Context, id string, params UpdateGrou
 	return args.Get(0).(Group), args.Error(1)
 }
 
-func (m *mockGroupRepo) SoftDelete(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepo) Deactivate(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockGroupRepo) Activate(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
+func (m *mockGroupRepo) RegenerateInviteToken(ctx context.Context, id, token string) error {
+	args := m.Called(ctx, id, token)
 	return args.Error(0)
 }
 
@@ -66,13 +56,13 @@ func (m *mockGroupMemberRepo) ListByGroup(ctx context.Context, groupID string) (
 	return args.Get(0).([]GroupMemberWithUser), args.Error(1)
 }
 
-func (m *mockGroupMemberRepo) Create(ctx context.Context, groupID, userID, role string) (GroupMember, error) {
-	args := m.Called(ctx, groupID, userID, role)
+func (m *mockGroupMemberRepo) Create(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
+	args := m.Called(ctx, groupID, userID, isAdmin)
 	return args.Get(0).(GroupMember), args.Error(1)
 }
 
-func (m *mockGroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID, role string) (GroupMember, error) {
-	args := m.Called(ctx, groupID, userID, role)
+func (m *mockGroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
+	args := m.Called(ctx, groupID, userID, isAdmin)
 	return args.Get(0).(GroupMember), args.Error(1)
 }
 
@@ -81,7 +71,7 @@ func (m *mockGroupMemberRepo) Remove(ctx context.Context, groupID, userID string
 	return args.Error(0)
 }
 
-func (m *mockGroupMemberRepo) CountActive(ctx context.Context, groupID string) (int64, error) {
+func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64, error) {
 	args := m.Called(ctx, groupID)
 	return args.Get(0).(int64), args.Error(1)
 }
@@ -92,9 +82,9 @@ func TestGroupService_Create(t *testing.T) {
 	svc := NewGroupService(mockGroup, mockMember)
 	ctx := context.Background()
 
-	params := CreateGroupParams{Name: "Test Group", Currency: "BRL"}
+	params := CreateGroupParams{Name: "Test Group"}
 	mockGroup.On("Create", ctx, params).Return(Group{ID: "1", Name: "Test Group"}, nil)
-	mockMember.On("Create", ctx, "1", "user1", "owner").Return(GroupMember{}, nil)
+	mockMember.On("Create", ctx, "1", "user1", true).Return(GroupMember{}, nil)
 
 	group, err := svc.Create(ctx, params, "user1")
 
@@ -135,7 +125,7 @@ func TestGroupService_RemoveMember_Owner(t *testing.T) {
 	svc := NewGroupService(mockGroup, mockMember)
 	ctx := context.Background()
 
-	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{Role: "owner"}, nil)
+	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{IsAdmin: true}, nil)
 
 	err := svc.RemoveMember(ctx, "g1", "u1")
 
@@ -149,7 +139,7 @@ func TestGroupService_RemoveMember_Success(t *testing.T) {
 	svc := NewGroupService(mockGroup, mockMember)
 	ctx := context.Background()
 
-	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{Role: "member"}, nil)
+	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{IsAdmin: false}, nil)
 	mockMember.On("Remove", ctx, "g1", "u1").Return(nil)
 
 	err := svc.RemoveMember(ctx, "g1", "u1")

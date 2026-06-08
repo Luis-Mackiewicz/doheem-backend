@@ -7,10 +7,7 @@ import (
 
 	"doheem-backend/internal/expense"
 	"doheem-backend/internal/group"
-	"doheem-backend/internal/invite"
 	"doheem-backend/internal/notification"
-	"doheem-backend/internal/payment"
-	"doheem-backend/internal/split_tag"
 	"doheem-backend/internal/task"
 	"doheem-backend/internal/user"
 )
@@ -29,11 +26,8 @@ func toHTTPStatus(err error) int {
 		errors.Is(err, user.ErrUserNotFound),
 		errors.Is(err, group.ErrGroupNotFound),
 		errors.Is(err, expense.ErrExpenseNotFound),
-		errors.Is(err, payment.ErrPaymentNotFound),
 		errors.Is(err, task.ErrTaskNotFound),
-		errors.Is(err, invite.ErrInviteNotFound),
 		errors.Is(err, notification.ErrNotificationNotFound),
-		errors.Is(err, split_tag.ErrSplitTagNotFound),
 		errors.Is(err, group.ErrMemberNotFound),
 		errors.Is(err, task.ErrTaskOccurrenceNotFound),
 		errors.Is(err, expense.ErrCategoryNotFound):
@@ -54,12 +48,7 @@ func toHTTPStatus(err error) int {
 
 	case
 		errors.Is(err, expense.ErrInvalidSplitTotal),
-		errors.Is(err, task.ErrInvalidDueDate),
-		errors.Is(err, payment.ErrPaymentAlreadyConfirmed),
-		errors.Is(err, payment.ErrPaymentAlreadyCancelled),
-		errors.Is(err, invite.ErrInviteExpired),
-		errors.Is(err, invite.ErrInviteAlreadyUsed),
-		errors.Is(err, invite.ErrInviteRevoked):
+		errors.Is(err, task.ErrInvalidDueDate):
 		return http.StatusBadRequest
 
 	default:

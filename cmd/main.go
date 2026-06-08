@@ -14,10 +14,7 @@ import (
 	"doheem-backend/internal/expense"
 	"doheem-backend/internal/group"
 	adapterhttp "doheem-backend/internal/http"
-	"doheem-backend/internal/invite"
 	"doheem-backend/internal/notification"
-	"doheem-backend/internal/payment"
-	"doheem-backend/internal/split_tag"
 	"doheem-backend/internal/task"
 	"doheem-backend/internal/user"
 
@@ -73,30 +70,22 @@ func main() {
 	groupMemberRepo := group.NewGroupMemberRepo(q)
 	expenseRepo := expense.NewExpenseRepo(q)
 	expenseSplitRepo := expense.NewExpenseSplitRepo(q)
-	installmentRepo := expense.NewInstallmentRepo(q)
 	categoryRepo := expense.NewExpenseCategoryRepo(q)
-	paymentRepo := payment.NewPaymentRepo(q)
-	paymentAttachmentRepo := payment.NewPaymentAttachmentRepo(q)
 	taskRepo := task.NewTaskRepo(q)
 	taskOccurrenceRepo := task.NewTaskOccurrenceRepo(q)
-	inviteRepo := invite.NewInviteRepo(q)
 	notificationRepo := notification.NewNotificationRepo(q)
-	splitTagRepo := split_tag.NewSplitTagRepo(q)
 	refreshTokenRepo := user.NewRefreshTokenRepo(q)
 
 	userSvc := user.NewUserService(userRepo, refreshTokenRepo)
 	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo)
 	notificationSvc := notification.NewNotificationService(notificationRepo)
 
-	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo)
-	paymentSvc := payment.NewPaymentService(paymentRepo, paymentAttachmentRepo)
+	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo)
 	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo)
-	inviteSvc := invite.NewInviteService(inviteRepo, groupMemberRepo, groupRepo)
-	splitTagSvc := split_tag.NewSplitTagService(splitTagRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 
-	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc, rdb, pool)
+	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, taskSvc, notificationSvc, rdb, pool)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

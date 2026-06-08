@@ -45,11 +45,11 @@ func (r *GroupMemberRepo) ListByGroup(ctx context.Context, groupID string) ([]Gr
 	return result, nil
 }
 
-func (r *GroupMemberRepo) Create(ctx context.Context, groupID, userID, role string) (GroupMember, error) {
+func (r *GroupMemberRepo) Create(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
 	gm, err := r.q.CreateGroupMember(ctx, db.CreateGroupMemberParams{
 		GroupID: db.UUIDFromString(groupID),
 		UserID:  db.UUIDFromString(userID),
-		Role:    role,
+		IsAdmin: isAdmin,
 	})
 	if err != nil {
 		return GroupMember{}, err
@@ -57,11 +57,11 @@ func (r *GroupMemberRepo) Create(ctx context.Context, groupID, userID, role stri
 	return toGroupMember(gm), nil
 }
 
-func (r *GroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID, role string) (GroupMember, error) {
+func (r *GroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
 	gm, err := r.q.UpdateGroupMemberRole(ctx, db.UpdateGroupMemberRoleParams{
 		GroupID: db.UUIDFromString(groupID),
 		UserID:  db.UUIDFromString(userID),
-		Role:    role,
+		IsAdmin: isAdmin,
 	})
 	if err != nil {
 		return GroupMember{}, err
@@ -76,6 +76,31 @@ func (r *GroupMemberRepo) Remove(ctx context.Context, groupID, userID string) er
 	})
 }
 
-func (r *GroupMemberRepo) CountActive(ctx context.Context, groupID string) (int64, error) {
-	return r.q.CountActiveGroupMembers(ctx, db.UUIDFromString(groupID))
+func (r *GroupMemberRepo) Count(ctx context.Context, groupID string) (int64, error) {
+	return r.q.CountGroupMembers(ctx, db.UUIDFromString(groupID))
+}
+
+func toGroupMember(gm db.GroupMember) GroupMember {
+	return GroupMember{
+		ID:       db.UUIDToString(gm.ID),
+		GroupID:  db.UUIDToString(gm.GroupID),
+		UserID:   db.UUIDToString(gm.UserID),
+		IsAdmin:  gm.IsAdmin,
+		JoinedAt: gm.JoinedAt.Time,
+	}
+}
+
+func toGroupMemberWithUser(row db.ListGroupMembersRow) GroupMemberWithUser {
+	return GroupMemberWithUser{
+		GroupMember: GroupMember{
+			ID:       db.UUIDToString(row.ID),
+			GroupID:  db.UUIDToString(row.GroupID),
+			UserID:   db.UUIDToString(row.UserID),
+			IsAdmin:  row.IsAdmin,
+			JoinedAt: row.JoinedAt.Time,
+		},
+		UserName:  row.Name,
+		UserEmail: row.Email,
+		AvatarURL: db.TextToStringPtr(row.AvatarUrl),
+	}
 }

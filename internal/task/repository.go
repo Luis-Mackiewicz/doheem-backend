@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"time"
 
 	"doheem-backend/internal/db"
 
@@ -44,20 +45,13 @@ func (r *TaskRepo) ListByAssignee(ctx context.Context, userID, groupID string) (
 }
 
 func (r *TaskRepo) Create(ctx context.Context, params CreateTaskParams) (Task, error) {
-	var recurringEndedAt pgtype.Timestamptz
-	if params.RecurringEndedAt != nil {
-		recurringEndedAt = db.TimestamptzFromTime(*params.RecurringEndedAt)
-	}
 	t, err := r.q.CreateTask(ctx, db.CreateTaskParams{
-		GroupID:          db.UUIDFromString(params.GroupID),
-		Title:            params.Title,
-		Description:      db.TextFromStringPtr(params.Description),
-		AssignedTo:       db.UUIDFromStringPtr(params.AssignedTo),
-		Category:         db.TextFromStringPtr(params.Category),
-		IsRecurring:      params.IsRecurring,
-		RecurringPeriod:  db.TextFromStringPtr(params.RecurringPeriod),
-		RecurringEndedAt: recurringEndedAt,
-		CreatedBy:        db.UUIDFromString(params.CreatedBy),
+		GroupID:     db.UUIDFromString(params.GroupID),
+		Title:       params.Title,
+		Description: params.Description,
+		AssignedTo:  db.UUIDFromString(params.AssignedTo),
+		CreatedBy:   db.UUIDFromString(params.CreatedBy),
+		DueDate:     db.DateFromTime(params.DueDate),
 	})
 	if err != nil {
 		return Task{}, err
@@ -66,27 +60,14 @@ func (r *TaskRepo) Create(ctx context.Context, params CreateTaskParams) (Task, e
 }
 
 func (r *TaskRepo) Update(ctx context.Context, id string, params UpdateTaskParams) (Task, error) {
-	var title string
-	if params.Title != nil {
-		title = *params.Title
-	}
-	var isRecurring bool
-	if params.IsRecurring != nil {
-		isRecurring = *params.IsRecurring
-	}
-	var recurringEndedAt pgtype.Timestamptz
-	if params.RecurringEndedAt != nil {
-		recurringEndedAt = db.TimestamptzFromTime(*params.RecurringEndedAt)
-	}
 	t, err := r.q.UpdateTask(ctx, db.UpdateTaskParams{
-		ID:               db.UUIDFromString(id),
-		Title:            title,
-		Description:      db.TextFromStringPtr(params.Description),
-		AssignedTo:       db.UUIDFromStringPtr(params.AssignedTo),
-		Category:         db.TextFromStringPtr(params.Category),
-		IsRecurring:      isRecurring,
-		RecurringPeriod:  db.TextFromStringPtr(params.RecurringPeriod),
-		RecurringEndedAt: recurringEndedAt,
+		ID:          db.UUIDFromString(id),
+		Title:       deptrStr(params.Title),
+		Description: deptrStr(params.Description),
+		AssignedTo:  db.UUIDFromStringPtr(params.AssignedTo),
+		Status:      deptrStr(params.Status),
+		Position:    deptrInt32(params.Position),
+		DueDate:     deptrDate(params.DueDate),
 	})
 	if err != nil {
 		return Task{}, err
@@ -100,18 +81,17 @@ func (r *TaskRepo) Delete(ctx context.Context, id string) error {
 
 func toTask(t db.Task) Task {
 	return Task{
-		ID:               db.UUIDToString(t.ID),
-		GroupID:          db.UUIDToString(t.GroupID),
-		Title:            t.Title,
-		Description:      db.TextToStringPtr(t.Description),
-		AssignedTo:       db.UUIDToStringPtr(t.AssignedTo),
-		Category:         db.TextToStringPtr(t.Category),
-		IsRecurring:      t.IsRecurring,
-		RecurringPeriod:  db.TextToStringPtr(t.RecurringPeriod),
-		RecurringEndedAt: db.TimestamptzToTimePtr(t.RecurringEndedAt),
-		CreatedBy:        db.UUIDToString(t.CreatedBy),
-		CreatedAt:        t.CreatedAt.Time,
-		UpdatedAt:        t.UpdatedAt.Time,
+		ID:          db.UUIDToString(t.ID),
+		GroupID:     db.UUIDToString(t.GroupID),
+		Title:       t.Title,
+		Description: t.Description,
+		AssignedTo:  db.UUIDToString(t.AssignedTo),
+		CreatedBy:   db.UUIDToString(t.CreatedBy),
+		Status:      t.Status,
+		Position:    t.Position,
+		DueDate:     t.DueDate.Time,
+		CreatedAt:   t.CreatedAt.Time,
+		UpdatedAt:   t.UpdatedAt.Time,
 	}
 }
 
@@ -121,4 +101,25 @@ func toTasks(tasks []db.Task) []Task {
 		result[i] = toTask(t)
 	}
 	return result
+}
+
+func deptrStr(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
+func deptrInt32(i *int32) int32 {
+	if i != nil {
+		return *i
+	}
+	return 0
+}
+
+func deptrDate(t *time.Time) pgtype.Date {
+	if t != nil {
+		return db.DateFromTime(*t)
+	}
+	return pgtype.Date{}
 }

@@ -15,34 +15,21 @@ func NewExpenseHandler(svc *expense.ExpenseService) *ExpenseHandler {
 	return &ExpenseHandler{svc: svc}
 }
 
-// Create creates a new expense in a group
-// @Summary Create an expense
-// @Description Create a new expense with splits in a group
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param groupId path string true "Group ID"
-// @Success 201 {object} expenseResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Group not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/groups/{groupId}/expenses [post]
-// @Security BearerAuth
 func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
 
 	var req struct {
-		Description      string   `json:"description"       validate:"required"`
-		TotalAmount      float64  `json:"total_amount"       validate:"required,gt=0"`
-		ExpenseDate      string   `json:"expense_date"       validate:"required"`
-		DueDate          *string  `json:"due_date,omitempty"`
-		CategoryID       *string  `json:"category_id,omitempty"`
-		SplitType        string   `json:"split_type"         validate:"required,oneof=equal custom"`
-		IsInstallment    bool     `json:"is_installment"`
-		InstallmentCount *int16   `json:"installment_count,omitempty"`
-		Splits           []struct {
+		Description    string    `json:"description"      validate:"required"`
+		Amount         float64   `json:"amount"            validate:"required,gt=0"`
+		CategoryID     string    `json:"category_id"       validate:"required"`
+		CompetenceDate string    `json:"competence_date"   validate:"required"`
+		DueDate        string    `json:"due_date"          validate:"required"`
+		PaidBy         string    `json:"paid_by"           validate:"required"`
+		SplitMode      string    `json:"split_mode"        validate:"required,oneof=equal custom"`
+		Installments   int32     `json:"installments"`
+		FirstDueDate   *string   `json:"first_due_date,omitempty"`
+		IsFixed        bool      `json:"is_fixed"`
+		Splits         []struct {
 			UserID string  `json:"user_id" validate:"required"`
 			Amount float64 `json:"amount"   validate:"required,gt=0"`
 		} `json:"splits,omitempty"`
@@ -52,19 +39,24 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expenseDate, err := time.Parse("2006-01-02", req.ExpenseDate)
+	competenceDate, err := time.Parse("2006-01-02", req.CompetenceDate)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid expense_date, use YYYY-MM-DD")
+		respondError(w, http.StatusBadRequest, "invalid competence_date, use YYYY-MM-DD")
 		return
 	}
-	var dueDate *time.Time
-	if req.DueDate != nil {
-		t, err := time.Parse("2006-01-02", *req.DueDate)
+	dueDate, err := time.Parse("2006-01-02", req.DueDate)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid due_date, use YYYY-MM-DD")
+		return
+	}
+	var firstDueDate *time.Time
+	if req.FirstDueDate != nil {
+		t, err := time.Parse("2006-01-02", *req.FirstDueDate)
 		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid due_date, use YYYY-MM-DD")
+			respondError(w, http.StatusBadRequest, "invalid first_due_date, use YYYY-MM-DD")
 			return
 		}
-		dueDate = &t
+		firstDueDate = &t
 	}
 
 	splits := make([]expense.CreateExpenseSplitParams, len(req.Splits))
@@ -77,16 +69,17 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	e, err := h.svc.Create(r.Context(), expense.CreateExpenseWithSplitsParams{
 		Expense: expense.CreateExpenseParams{
-			GroupID:          groupID,
-			CreatedBy:        userID,
-			Description:      req.Description,
-			TotalAmount:      req.TotalAmount,
-			ExpenseDate:      expenseDate,
-			DueDate:          dueDate,
-			CategoryID:       req.CategoryID,
-			SplitType:        req.SplitType,
-			IsInstallment:    req.IsInstallment,
-			InstallmentCount: req.InstallmentCount,
+			GroupID:        groupID,
+			Description:    req.Description,
+			Amount:         req.Amount,
+			CategoryID:     req.CategoryID,
+			CompetenceDate: competenceDate,
+			DueDate:        dueDate,
+			PaidBy:         req.PaidBy,
+			SplitMode:      req.SplitMode,
+			Installments:   req.Installments,
+			FirstDueDate:   firstDueDate,
+			IsFixed:        req.IsFixed,
 		},
 		Splits: splits,
 	})
@@ -97,19 +90,6 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toExpenseResponse(e))
 }
 
-// ListByGroup lists expenses in a group
-// @Summary List expenses by group
-// @Description List all expenses for a specific group
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param groupId path string true "Group ID"
-// @Success 200 {array} expenseResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Group not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/groups/{groupId}/expenses [get]
-// @Security BearerAuth
 func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	expenses, err := h.svc.ListByGroup(r.Context(), groupID)
@@ -134,21 +114,20 @@ func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
-func (h *ExpenseHandler) ListInstallments(w http.ResponseWriter, r *http.Request) {
+func (h *ExpenseHandler) ListByParent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	installments, err := h.svc.ListInstallmentsByExpense(r.Context(), id)
+	expenses, err := h.svc.ListByParent(r.Context(), id)
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 	limit, offset := parsePagination(r)
-	items, total := paginate(toInstallmentResponses(installments), limit, offset)
+	items, total := paginate(toExpenseResponses(expenses), limit, offset)
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
 func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	groupID := r.PathValue("groupId")
-	categories, err := h.svc.ListCategoriesByGroup(r.Context(), groupID)
+	categories, err := h.svc.ListAllCategories(r.Context())
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -158,19 +137,6 @@ func (h *ExpenseHandler) ListCategories(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
-// GetByID gets an expense by ID
-// @Summary Get expense by ID
-// @Description Get a single expense by its unique identifier
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Expense ID"
-// @Success 200 {object} expenseResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Expense not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/{id} [get]
-// @Security BearerAuth
 func (h *ExpenseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	expense, err := h.svc.GetByID(r.Context(), id)
@@ -181,29 +147,15 @@ func (h *ExpenseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toExpenseResponse(expense))
 }
 
-// Update updates an expense
-// @Summary Update an expense
-// @Description Update an existing expense's details
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Expense ID"
-// @Success 200 {object} expenseResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Expense not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/{id} [put]
-// @Security BearerAuth
 func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		Description *string  `json:"description,omitempty"`
-		TotalAmount *float64 `json:"total_amount,omitempty" validate:"omitempty,gt=0"`
-		ExpenseDate *string  `json:"expense_date,omitempty"`
-		DueDate     *string  `json:"due_date,omitempty"`
-		CategoryID  *string  `json:"category_id,omitempty"`
-		SplitType   *string  `json:"split_type,omitempty"   validate:"omitempty,oneof=equal custom"`
+		Description    *string  `json:"description,omitempty"`
+		Amount         *float64 `json:"amount,omitempty"         validate:"omitempty,gt=0"`
+		CompetenceDate *string  `json:"competence_date,omitempty"`
+		DueDate        *string  `json:"due_date,omitempty"`
+		CategoryID     *string  `json:"category_id,omitempty"`
+		SplitMode      *string  `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal custom"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
@@ -212,14 +164,14 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	params := expense.UpdateExpenseParams{
 		Description: req.Description,
-		TotalAmount: req.TotalAmount,
-		SplitType:   req.SplitType,
+		Amount:      req.Amount,
+		SplitMode:   req.SplitMode,
 		CategoryID:  req.CategoryID,
 	}
-	if req.ExpenseDate != nil {
-		t, err := time.Parse("2006-01-02", *req.ExpenseDate)
+	if req.CompetenceDate != nil {
+		t, err := time.Parse("2006-01-02", *req.CompetenceDate)
 		if err == nil {
-			params.ExpenseDate = &t
+			params.CompetenceDate = &t
 		}
 	}
 	if req.DueDate != nil {
@@ -237,19 +189,6 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toExpenseResponse(expense))
 }
 
-// Delete deletes an expense
-// @Summary Delete an expense
-// @Description Permanently delete an expense
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Expense ID"
-// @Success 204 {object} nil
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Expense not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/{id} [delete]
-// @Security BearerAuth
 func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
@@ -259,32 +198,6 @@ func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ListSplits lists splits for an expense
-// @Summary List expense splits
-// @Description List all payment splits for a specific expense
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Expense ID"
-// @Success 200 {array} expenseSplitWithUserResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Expense not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/{id}/splits [get]
-// @Security BearerAuth
-// MarkSplitAsPaid marks a split as paid
-// @Summary Mark split as paid
-// @Description Mark an expense split as paid
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Split ID"
-// @Success 204 {object} nil
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Split not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/splits/{id}/pay [patch]
-// @Security BearerAuth
 func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.MarkSplitAsPaid(r.Context(), id); err != nil {
@@ -294,65 +207,16 @@ func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ListInstallments lists installments for an expense
-// @Summary List expense installments
-// @Description List all installments for a specific installment-based expense
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Expense ID"
-// @Success 200 {array} installmentResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Expense not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/{id}/installments [get]
-// @Security BearerAuth
-// MarkInstallmentAsPaid marks an installment as paid
-// @Summary Mark installment as paid
-// @Description Mark an expense installment as paid
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Installment ID"
-// @Success 204 {object} nil
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Installment not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/expenses/installments/{id}/pay [patch]
-// @Security BearerAuth
-func (h *ExpenseHandler) MarkInstallmentAsPaid(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if err := h.svc.MarkInstallmentAsPaid(r.Context(), id); err != nil {
-		handleError(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// CreateCategory creates a new expense category
-// @Summary Create a category
-// @Description Create a new expense category for a group
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param groupId path string true "Group ID"
-// @Param request body object{name=string} true "Category name"
-// @Success 201 {object} categoryResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/groups/{groupId}/categories [post]
-// @Security BearerAuth
 func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	groupID := r.PathValue("groupId")
 	var req struct {
-		Name string `json:"name" validate:"required"`
+		Slug  string `json:"slug"  validate:"required"`
+		Label string `json:"label" validate:"required"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
-	category, err := h.svc.CreateCategory(r.Context(), groupID, req.Name)
+	category, err := h.svc.CreateCategory(r.Context(), req.Slug, req.Label)
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -360,45 +224,17 @@ func (h *ExpenseHandler) CreateCategory(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusCreated, toCategoryResponse(category))
 }
 
-// ListCategories lists categories for a group
-// @Summary List categories
-// @Description List all expense categories for a specific group
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param groupId path string true "Group ID"
-// @Success 200 {array} categoryResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Group not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/groups/{groupId}/categories [get]
-// @Security BearerAuth
-// UpdateCategory updates a category
-// @Summary Update a category
-// @Description Update an existing expense category
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Category ID"
-// @Param request body object{group_id=string,name=string} true "Category update details"
-// @Success 200 {object} categoryResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Category not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/categories/{id} [put]
-// @Security BearerAuth
 func (h *ExpenseHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		GroupID string `json:"group_id" validate:"required"`
-		Name    string `json:"name"     validate:"required"`
+		Slug  string `json:"slug"  validate:"required"`
+		Label string `json:"label" validate:"required"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
-	category, err := h.svc.UpdateCategory(r.Context(), id, req.GroupID, req.Name)
+	category, err := h.svc.UpdateCategory(r.Context(), id, req.Slug, req.Label)
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -406,28 +242,9 @@ func (h *ExpenseHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, toCategoryResponse(category))
 }
 
-// DeleteCategory deletes a category
-// @Summary Delete a category
-// @Description Delete an expense category
-// @Tags Expenses
-// @Accept json
-// @Produce json
-// @Param id path string true "Category ID"
-// @Success 204 {object} nil
-// @Failure 400 {object} map[string]any "group_id query param required"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Category not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/categories/{id} [delete]
-// @Security BearerAuth
 func (h *ExpenseHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	groupID := r.URL.Query().Get("group_id")
-	if groupID == "" {
-		respondError(w, http.StatusBadRequest, "group_id query param required")
-		return
-	}
-	if err := h.svc.DeleteCategory(r.Context(), id, groupID); err != nil {
+	if err := h.svc.DeleteCategory(r.Context(), id); err != nil {
 		handleError(w, r, err)
 		return
 	}
@@ -437,15 +254,19 @@ func (h *ExpenseHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) 
 type expenseResponse struct {
 	ID               string   `json:"id"`
 	GroupID          string   `json:"group_id"`
-	CreatedBy        string   `json:"created_by"`
 	Description      string   `json:"description"`
-	TotalAmount      float64  `json:"total_amount"`
-	ExpenseDate      string   `json:"expense_date"`
-	DueDate          *string  `json:"due_date,omitempty"`
-	CategoryID       *string  `json:"category_id,omitempty"`
-	SplitType        string   `json:"split_type"`
-	IsInstallment    bool     `json:"is_installment"`
-	InstallmentCount *int16   `json:"installment_count,omitempty"`
+	Amount           float64  `json:"amount"`
+	CategoryID       string   `json:"category_id"`
+	CompetenceDate   string   `json:"competence_date"`
+	DueDate          string   `json:"due_date"`
+	PaidBy           string   `json:"paid_by"`
+	SplitMode        string   `json:"split_mode"`
+	Installments     int32    `json:"installments"`
+	FirstDueDate     *string  `json:"first_due_date,omitempty"`
+	IsFixed          bool     `json:"is_fixed"`
+	ParentExpenseID  *string  `json:"parent_expense_id,omitempty"`
+	InstallmentIndex *int32   `json:"installment_index,omitempty"`
+	InstallmentTotal *int32   `json:"installment_total,omitempty"`
 	CreatedAt        string   `json:"created_at"`
 	UpdatedAt        string   `json:"updated_at"`
 }
@@ -470,20 +291,10 @@ type expenseSplitWithUserResponse struct {
 	UserEmail string  `json:"user_email"`
 }
 
-type installmentResponse struct {
-	ID                string  `json:"id"`
-	ExpenseID         string  `json:"expense_id"`
-	InstallmentNumber int16   `json:"installment_number"`
-	Amount            float64 `json:"amount"`
-	DueDate           string  `json:"due_date"`
-	IsPaid            bool    `json:"is_paid"`
-	CreatedAt         string  `json:"created_at"`
-}
-
 type categoryResponse struct {
 	ID        string `json:"id"`
-	GroupID   string `json:"group_id"`
-	Name      string `json:"name"`
+	Slug      string `json:"slug"`
+	Label     string `json:"label"`
 	CreatedAt string `json:"created_at"`
 }
 
@@ -491,20 +302,24 @@ func toExpenseResponse(e expense.Expense) expenseResponse {
 	r := expenseResponse{
 		ID:               e.ID,
 		GroupID:          e.GroupID,
-		CreatedBy:        e.CreatedBy,
 		Description:      e.Description,
-		TotalAmount:      e.TotalAmount,
-		ExpenseDate:      e.ExpenseDate.Format("2006-01-02"),
-		SplitType:        e.SplitType,
-		IsInstallment:    e.IsInstallment,
-		InstallmentCount: e.InstallmentCount,
+		Amount:           e.Amount,
+		CategoryID:       e.CategoryID,
+		CompetenceDate:   e.CompetenceDate.Format("2006-01-02"),
+		DueDate:          e.DueDate.Format("2006-01-02"),
+		PaidBy:           e.PaidBy,
+		SplitMode:        e.SplitMode,
+		Installments:     e.Installments,
+		IsFixed:          e.IsFixed,
+		ParentExpenseID:  e.ParentExpenseID,
+		InstallmentIndex: e.InstallmentIndex,
+		InstallmentTotal: e.InstallmentTotal,
 		CreatedAt:        e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:        e.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		CategoryID:       e.CategoryID,
 	}
-	if e.DueDate != nil {
-		s := e.DueDate.Format("2006-01-02")
-		r.DueDate = &s
+	if e.FirstDueDate != nil {
+		s := e.FirstDueDate.Format("2006-01-02")
+		r.FirstDueDate = &s
 	}
 	return r
 }
@@ -545,31 +360,11 @@ func toExpenseSplitResponses(splits []expense.ExpenseSplitWithUser) []expenseSpl
 	return res
 }
 
-func toInstallmentResponse(i expense.Installment) installmentResponse {
-	return installmentResponse{
-		ID:                i.ID,
-		ExpenseID:         i.ExpenseID,
-		InstallmentNumber: i.InstallmentNumber,
-		Amount:            i.Amount,
-		DueDate:           i.DueDate.Format("2006-01-02"),
-		IsPaid:            i.IsPaid,
-		CreatedAt:         i.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-	}
-}
-
-func toInstallmentResponses(installments []expense.Installment) []installmentResponse {
-	res := make([]installmentResponse, len(installments))
-	for i, inst := range installments {
-		res[i] = toInstallmentResponse(inst)
-	}
-	return res
-}
-
 func toCategoryResponse(c expense.ExpenseCategory) categoryResponse {
 	return categoryResponse{
 		ID:        c.ID,
-		GroupID:   c.GroupID,
-		Name:      c.Name,
+		Slug:      c.Slug,
+		Label:     c.Label,
 		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }

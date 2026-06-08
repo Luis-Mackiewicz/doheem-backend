@@ -1,42 +1,33 @@
 -- name: GetGroupByID :one
 SELECT * FROM groups
-WHERE id = $1 AND deleted_at IS NULL;
+WHERE id = $1;
 
 -- name: ListGroupsByUserID :many
 SELECT g.* FROM groups g
 JOIN group_members gm ON gm.group_id = g.id
-WHERE gm.user_id = $1 AND g.deleted_at IS NULL AND gm.is_active = true
+WHERE gm.user_id = $1
 ORDER BY g.name;
 
 -- name: CreateGroup :one
-INSERT INTO groups (name, currency)
-VALUES ($1, $2)
+INSERT INTO groups (name, invite_token)
+VALUES ($1, gen_random_uuid()::text)
 RETURNING *;
 
 -- name: UpdateGroup :one
 UPDATE groups
 SET name = COALESCE($2, name),
-    currency = COALESCE($3, currency),
+    description = COALESCE($3, description),
+    monthly_fee = COALESCE($4, monthly_fee),
+    cnpj = COALESCE($5, cnpj),
+    cep = COALESCE($6, cep),
+    photo_url = COALESCE($7, photo_url),
     updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL
+WHERE id = $1
 RETURNING *;
 
--- name: SoftDeleteGroup :exec
+-- name: RegenerateInviteToken :one
 UPDATE groups
-SET deleted_at = NOW(),
+SET invite_token = $2,
     updated_at = NOW()
-WHERE id = $1;
-
--- name: DeactivateGroup :exec
-UPDATE groups
-SET is_active = false,
-    inactive_since = NOW(),
-    updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL;
-
--- name: ActivateGroup :exec
-UPDATE groups
-SET is_active = true,
-    inactive_since = NULL,
-    updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL;
+WHERE id = $1
+RETURNING *;

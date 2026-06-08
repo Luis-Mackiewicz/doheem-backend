@@ -22,23 +22,27 @@ type AuditLog struct {
 type Expense struct {
 	ID               pgtype.UUID
 	GroupID          pgtype.UUID
-	CreatedBy        pgtype.UUID
 	Description      string
-	TotalAmount      pgtype.Numeric
-	ExpenseDate      pgtype.Date
-	DueDate          pgtype.Date
+	Amount           pgtype.Numeric
 	CategoryID       pgtype.UUID
-	SplitType        string
-	IsInstallment    bool
-	InstallmentCount pgtype.Int2
+	CompetenceDate   pgtype.Date
+	DueDate          pgtype.Date
+	PaidBy           pgtype.UUID
+	SplitMode        string
+	Installments     int32
+	FirstDueDate     pgtype.Date
+	IsFixed          bool
+	ParentExpenseID  pgtype.UUID
+	InstallmentIndex pgtype.Int4
+	InstallmentTotal pgtype.Int4
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
 }
 
 type ExpenseCategory struct {
 	ID        pgtype.UUID
-	GroupID   pgtype.UUID
-	Name      string
+	Slug      string
+	Label     string
 	CreatedAt pgtype.Timestamptz
 }
 
@@ -53,57 +57,34 @@ type ExpenseSplit struct {
 }
 
 type Group struct {
-	ID            pgtype.UUID
-	Name          string
-	Currency      string
-	IsActive      bool
-	InactiveSince pgtype.Timestamptz
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	DeletedAt     pgtype.Timestamptz
+	ID          pgtype.UUID
+	Name        string
+	Description string
+	MonthlyFee  pgtype.Numeric
+	Cnpj        string
+	Cep         string
+	PhotoUrl    pgtype.Text
+	InviteToken pgtype.Text
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }
 
 type GroupMember struct {
 	ID       pgtype.UUID
 	GroupID  pgtype.UUID
 	UserID   pgtype.UUID
-	Role     string
+	IsAdmin  bool
 	JoinedAt pgtype.Timestamptz
-	LeftAt   pgtype.Timestamptz
-	IsActive bool
-}
-
-type Installment struct {
-	ID                pgtype.UUID
-	ExpenseID         pgtype.UUID
-	InstallmentNumber int16
-	Amount            pgtype.Numeric
-	DueDate           pgtype.Date
-	IsPaid            bool
-	PaidAt            pgtype.Timestamptz
-	CreatedAt         pgtype.Timestamptz
-}
-
-type Invite struct {
-	ID        pgtype.UUID
-	GroupID   pgtype.UUID
-	Code      string
-	CreatedBy pgtype.UUID
-	ExpiresAt pgtype.Timestamptz
-	UsedAt    pgtype.Timestamptz
-	RevokedAt pgtype.Timestamptz
-	CreatedAt pgtype.Timestamptz
 }
 
 type Notification struct {
 	ID        pgtype.UUID
 	UserID    pgtype.UUID
-	GroupID   pgtype.UUID
 	Type      string
 	Title     string
 	Message   string
 	IsRead    bool
-	ReadAt    pgtype.Timestamptz
+	RelatedID pgtype.UUID
 	CreatedAt pgtype.Timestamptz
 }
 
@@ -139,33 +120,18 @@ type RefreshToken struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-type SplitTag struct {
-	ID        pgtype.UUID
-	GroupID   pgtype.UUID
-	Name      string
-	CreatedBy pgtype.UUID
-	CreatedAt pgtype.Timestamptz
-}
-
-type SplitTagMember struct {
-	ID         pgtype.UUID
-	SplitTagID pgtype.UUID
-	UserID     pgtype.UUID
-}
-
 type Task struct {
-	ID               pgtype.UUID
-	GroupID          pgtype.UUID
-	Title            string
-	Description      pgtype.Text
-	AssignedTo       pgtype.UUID
-	Category         pgtype.Text
-	IsRecurring      bool
-	RecurringPeriod  pgtype.Text
-	RecurringEndedAt pgtype.Timestamptz
-	CreatedBy        pgtype.UUID
-	CreatedAt        pgtype.Timestamptz
-	UpdatedAt        pgtype.Timestamptz
+	ID          pgtype.UUID
+	GroupID     pgtype.UUID
+	Title       string
+	Description string
+	AssignedTo  pgtype.UUID
+	CreatedBy   pgtype.UUID
+	Status      string
+	Position    int32
+	DueDate     pgtype.Date
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }
 
 type TaskOccurrence struct {
@@ -185,6 +151,11 @@ type User struct {
 	Email        string
 	PasswordHash string
 	AvatarUrl    pgtype.Text
+	Phone        pgtype.Text
+	Document     pgtype.Text
+	BirthDate    pgtype.Date
+	Cep          pgtype.Text
+	IsAdmin      bool
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
 }

@@ -120,11 +120,11 @@ func (h *NotificationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 type notificationResponse struct {
 	ID        string  `json:"id"`
 	UserID    string  `json:"user_id"`
-	GroupID   *string `json:"group_id,omitempty"`
 	Type      string  `json:"type"`
 	Title     string  `json:"title"`
 	Message   string  `json:"message"`
 	IsRead    bool    `json:"is_read"`
+	RelatedID *string `json:"related_id,omitempty"`
 	CreatedAt string  `json:"created_at"`
 }
 
@@ -132,11 +132,11 @@ func toNotificationResponse(n notification.Notification) notificationResponse {
 	return notificationResponse{
 		ID:        n.ID,
 		UserID:    n.UserID,
-		GroupID:   n.GroupID,
 		Type:      n.Type,
 		Title:     n.Title,
 		Message:   n.Message,
 		IsRead:    n.IsRead,
+		RelatedID: n.RelatedID,
 		CreatedAt: n.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }

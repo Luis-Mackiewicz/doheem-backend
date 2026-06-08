@@ -17,14 +17,11 @@ func TestGroupRepo_CreateAndGetByID(t *testing.T) {
 	ctx := context.Background()
 
 	createdGroup, err := repo.Create(ctx, group.CreateGroupParams{
-		Name:     "Test Group",
-		Currency: "USD",
+		Name: "Test Group",
 	})
 	require.NoError(t, err)
 	assert.NotEmpty(t, createdGroup.ID)
 	assert.Equal(t, "Test Group", createdGroup.Name)
-	assert.Equal(t, "USD", createdGroup.Currency)
-	assert.True(t, createdGroup.IsActive)
 
 	got, err := repo.GetByID(ctx, createdGroup.ID)
 	require.NoError(t, err)
@@ -37,8 +34,7 @@ func TestGroupRepo_Update(t *testing.T) {
 	ctx := context.Background()
 
 	createdGroup, err := repo.Create(ctx, group.CreateGroupParams{
-		Name:     "Original",
-		Currency: "BRL",
+		Name: "Original",
 	})
 	require.NoError(t, err)
 
@@ -50,45 +46,6 @@ func TestGroupRepo_Update(t *testing.T) {
 	assert.Equal(t, "Updated", updated.Name)
 }
 
-func TestGroupRepo_SoftDelete(t *testing.T) {
-	q := dbtest.NewTxQueries(t)
-	repo := group.NewGroupRepo(q)
-	ctx := context.Background()
-
-	createdGroup, err := repo.Create(ctx, group.CreateGroupParams{Name: "To Delete", Currency: "BRL"})
-	require.NoError(t, err)
-
-	err = repo.SoftDelete(ctx, createdGroup.ID)
-	require.NoError(t, err)
-
-	_, err = repo.GetByID(ctx, createdGroup.ID)
-	assert.Error(t, err)
-}
-
-func TestGroupRepo_ActivateDeactivate(t *testing.T) {
-	q := dbtest.NewTxQueries(t)
-	repo := group.NewGroupRepo(q)
-	ctx := context.Background()
-
-	createdGroup, err := repo.Create(ctx, group.CreateGroupParams{Name: "Toggle", Currency: "BRL"})
-	require.NoError(t, err)
-
-	err = repo.Deactivate(ctx, createdGroup.ID)
-	require.NoError(t, err)
-
-	got, err := repo.GetByID(ctx, createdGroup.ID)
-	require.NoError(t, err)
-	assert.False(t, got.IsActive)
-	assert.NotNil(t, got.InactiveSince)
-
-	err = repo.Activate(ctx, createdGroup.ID)
-	require.NoError(t, err)
-
-	got, err = repo.GetByID(ctx, createdGroup.ID)
-	require.NoError(t, err)
-	assert.True(t, got.IsActive)
-}
-
 func TestGroupMemberRepo_Create(t *testing.T) {
 	q := dbtest.NewTxQueries(t)
 	groupRepo := group.NewGroupRepo(q)
@@ -96,14 +53,13 @@ func TestGroupMemberRepo_Create(t *testing.T) {
 	ctx := context.Background()
 
 	user := dbtest.CreateTestUser(t, q)
-	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Members", Currency: "BRL"})
+	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Members"})
 	require.NoError(t, err)
 
-	member, err := memberRepo.Create(ctx, createdGroup.ID, user.ID, "admin")
+	member, err := memberRepo.Create(ctx, createdGroup.ID, user.ID, true)
 	require.NoError(t, err)
 	assert.NotEmpty(t, member.ID)
-	assert.Equal(t, "admin", member.Role)
-	assert.True(t, member.IsActive)
+	assert.True(t, member.IsAdmin)
 }
 
 func TestGroupMemberRepo_ListByGroup(t *testing.T) {
@@ -114,11 +70,11 @@ func TestGroupMemberRepo_ListByGroup(t *testing.T) {
 
 	user1 := dbtest.CreateTestUser(t, q)
 	user2 := dbtest.CreateTestUser(t, q)
-	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "List Members", Currency: "BRL"})
+	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "List Members"})
 	require.NoError(t, err)
 
-	memberRepo.Create(ctx, createdGroup.ID, user1.ID, "admin")
-	memberRepo.Create(ctx, createdGroup.ID, user2.ID, "member")
+	memberRepo.Create(ctx, createdGroup.ID, user1.ID, true)
+	memberRepo.Create(ctx, createdGroup.ID, user2.ID, false)
 
 	members, err := memberRepo.ListByGroup(ctx, createdGroup.ID)
 	require.NoError(t, err)
@@ -132,10 +88,10 @@ func TestGroupMemberRepo_Get(t *testing.T) {
 	ctx := context.Background()
 
 	user := dbtest.CreateTestUser(t, q)
-	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Get Member", Currency: "BRL"})
+	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Get Member"})
 	require.NoError(t, err)
 
-	member, err := memberRepo.Create(ctx, createdGroup.ID, user.ID, "member")
+	member, err := memberRepo.Create(ctx, createdGroup.ID, user.ID, false)
 	require.NoError(t, err)
 
 	got, err := memberRepo.Get(ctx, createdGroup.ID, user.ID)
@@ -150,17 +106,15 @@ func TestGroupMemberRepo_Remove(t *testing.T) {
 	ctx := context.Background()
 
 	user := dbtest.CreateTestUser(t, q)
-	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Remove Member", Currency: "BRL"})
+	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Remove Member"})
 	require.NoError(t, err)
 
-	memberRepo.Create(ctx, createdGroup.ID, user.ID, "member")
+	memberRepo.Create(ctx, createdGroup.ID, user.ID, false)
 	err = memberRepo.Remove(ctx, createdGroup.ID, user.ID)
 	require.NoError(t, err)
 
-	got, err := memberRepo.Get(ctx, createdGroup.ID, user.ID)
-	require.NoError(t, err)
-	assert.False(t, got.IsActive)
-	assert.NotNil(t, got.LeftAt)
+	_, err = memberRepo.Get(ctx, createdGroup.ID, user.ID)
+	assert.Error(t, err)
 }
 
 func TestGroupMemberRepo_UpdateRole(t *testing.T) {
@@ -170,11 +124,11 @@ func TestGroupMemberRepo_UpdateRole(t *testing.T) {
 	ctx := context.Background()
 
 	user := dbtest.CreateTestUser(t, q)
-	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Role Update", Currency: "BRL"})
+	createdGroup, err := groupRepo.Create(ctx, group.CreateGroupParams{Name: "Role Update"})
 	require.NoError(t, err)
 
-	memberRepo.Create(ctx, createdGroup.ID, user.ID, "member")
-	updated, err := memberRepo.UpdateRole(ctx, createdGroup.ID, user.ID, "admin")
+	memberRepo.Create(ctx, createdGroup.ID, user.ID, false)
+	updated, err := memberRepo.UpdateRole(ctx, createdGroup.ID, user.ID, true)
 	require.NoError(t, err)
-	assert.Equal(t, "admin", updated.Role)
+	assert.True(t, updated.IsAdmin)
 }

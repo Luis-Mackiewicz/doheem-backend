@@ -12,50 +12,62 @@ import (
 )
 
 const createExpense = `-- name: CreateExpense :one
-INSERT INTO expenses (group_id, created_by, description, total_amount, expense_date, due_date, category_id, split_type, is_installment, installment_count)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, group_id, created_by, description, total_amount, expense_date, due_date, category_id, split_type, is_installment, installment_count, created_at, updated_at
+INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at
 `
 
 type CreateExpenseParams struct {
 	GroupID          pgtype.UUID
-	CreatedBy        pgtype.UUID
 	Description      string
-	TotalAmount      pgtype.Numeric
-	ExpenseDate      pgtype.Date
-	DueDate          pgtype.Date
+	Amount           pgtype.Numeric
 	CategoryID       pgtype.UUID
-	SplitType        string
-	IsInstallment    bool
-	InstallmentCount pgtype.Int2
+	CompetenceDate   pgtype.Date
+	DueDate          pgtype.Date
+	PaidBy           pgtype.UUID
+	SplitMode        string
+	Installments     int32
+	FirstDueDate     pgtype.Date
+	IsFixed          bool
+	ParentExpenseID  pgtype.UUID
+	InstallmentIndex pgtype.Int4
+	InstallmentTotal pgtype.Int4
 }
 
 func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expense, error) {
 	row := q.db.QueryRow(ctx, createExpense,
 		arg.GroupID,
-		arg.CreatedBy,
 		arg.Description,
-		arg.TotalAmount,
-		arg.ExpenseDate,
-		arg.DueDate,
+		arg.Amount,
 		arg.CategoryID,
-		arg.SplitType,
-		arg.IsInstallment,
-		arg.InstallmentCount,
+		arg.CompetenceDate,
+		arg.DueDate,
+		arg.PaidBy,
+		arg.SplitMode,
+		arg.Installments,
+		arg.FirstDueDate,
+		arg.IsFixed,
+		arg.ParentExpenseID,
+		arg.InstallmentIndex,
+		arg.InstallmentTotal,
 	)
 	var i Expense
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
-		&i.CreatedBy,
 		&i.Description,
-		&i.TotalAmount,
-		&i.ExpenseDate,
-		&i.DueDate,
+		&i.Amount,
 		&i.CategoryID,
-		&i.SplitType,
-		&i.IsInstallment,
-		&i.InstallmentCount,
+		&i.CompetenceDate,
+		&i.DueDate,
+		&i.PaidBy,
+		&i.SplitMode,
+		&i.Installments,
+		&i.FirstDueDate,
+		&i.IsFixed,
+		&i.ParentExpenseID,
+		&i.InstallmentIndex,
+		&i.InstallmentTotal,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -72,8 +84,18 @@ func (q *Queries) DeleteExpense(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const deleteExpensesByParent = `-- name: DeleteExpensesByParent :exec
+DELETE FROM expenses
+WHERE parent_expense_id = $1
+`
+
+func (q *Queries) DeleteExpensesByParent(ctx context.Context, parentExpenseID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteExpensesByParent, parentExpenseID)
+	return err
+}
+
 const getExpenseByID = `-- name: GetExpenseByID :one
-SELECT id, group_id, created_by, description, total_amount, expense_date, due_date, category_id, split_type, is_installment, installment_count, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
 WHERE id = $1
 `
 
@@ -83,15 +105,19 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
-		&i.CreatedBy,
 		&i.Description,
-		&i.TotalAmount,
-		&i.ExpenseDate,
-		&i.DueDate,
+		&i.Amount,
 		&i.CategoryID,
-		&i.SplitType,
-		&i.IsInstallment,
-		&i.InstallmentCount,
+		&i.CompetenceDate,
+		&i.DueDate,
+		&i.PaidBy,
+		&i.SplitMode,
+		&i.Installments,
+		&i.FirstDueDate,
+		&i.IsFixed,
+		&i.ParentExpenseID,
+		&i.InstallmentIndex,
+		&i.InstallmentTotal,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -99,7 +125,7 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 }
 
 const getTotalExpensesByGroup = `-- name: GetTotalExpensesByGroup :one
-SELECT COALESCE(SUM(total_amount), 0)::NUMERIC(12,2) FROM expenses
+SELECT COALESCE(SUM(amount), 0)::NUMERIC(12,2) FROM expenses
 WHERE group_id = $1
 `
 
@@ -111,9 +137,9 @@ func (q *Queries) GetTotalExpensesByGroup(ctx context.Context, groupID pgtype.UU
 }
 
 const listExpensesByCategory = `-- name: ListExpensesByCategory :many
-SELECT id, group_id, created_by, description, total_amount, expense_date, due_date, category_id, split_type, is_installment, installment_count, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
 WHERE category_id = $1
-ORDER BY expense_date DESC
+ORDER BY competence_date DESC
 `
 
 func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.UUID) ([]Expense, error) {
@@ -128,15 +154,19 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 		if err := rows.Scan(
 			&i.ID,
 			&i.GroupID,
-			&i.CreatedBy,
 			&i.Description,
-			&i.TotalAmount,
-			&i.ExpenseDate,
-			&i.DueDate,
+			&i.Amount,
 			&i.CategoryID,
-			&i.SplitType,
-			&i.IsInstallment,
-			&i.InstallmentCount,
+			&i.CompetenceDate,
+			&i.DueDate,
+			&i.PaidBy,
+			&i.SplitMode,
+			&i.Installments,
+			&i.FirstDueDate,
+			&i.IsFixed,
+			&i.ParentExpenseID,
+			&i.InstallmentIndex,
+			&i.InstallmentTotal,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -151,9 +181,9 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 }
 
 const listExpensesByGroup = `-- name: ListExpensesByGroup :many
-SELECT id, group_id, created_by, description, total_amount, expense_date, due_date, category_id, split_type, is_installment, installment_count, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
 WHERE group_id = $1
-ORDER BY expense_date DESC, created_at DESC
+ORDER BY competence_date DESC, created_at DESC
 `
 
 func (q *Queries) ListExpensesByGroup(ctx context.Context, groupID pgtype.UUID) ([]Expense, error) {
@@ -168,15 +198,63 @@ func (q *Queries) ListExpensesByGroup(ctx context.Context, groupID pgtype.UUID) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.GroupID,
-			&i.CreatedBy,
 			&i.Description,
-			&i.TotalAmount,
-			&i.ExpenseDate,
-			&i.DueDate,
+			&i.Amount,
 			&i.CategoryID,
-			&i.SplitType,
-			&i.IsInstallment,
-			&i.InstallmentCount,
+			&i.CompetenceDate,
+			&i.DueDate,
+			&i.PaidBy,
+			&i.SplitMode,
+			&i.Installments,
+			&i.FirstDueDate,
+			&i.IsFixed,
+			&i.ParentExpenseID,
+			&i.InstallmentIndex,
+			&i.InstallmentTotal,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listExpensesByParent = `-- name: ListExpensesByParent :many
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
+WHERE parent_expense_id = $1
+ORDER BY installment_index
+`
+
+func (q *Queries) ListExpensesByParent(ctx context.Context, parentExpenseID pgtype.UUID) ([]Expense, error) {
+	rows, err := q.db.Query(ctx, listExpensesByParent, parentExpenseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Expense
+	for rows.Next() {
+		var i Expense
+		if err := rows.Scan(
+			&i.ID,
+			&i.GroupID,
+			&i.Description,
+			&i.Amount,
+			&i.CategoryID,
+			&i.CompetenceDate,
+			&i.DueDate,
+			&i.PaidBy,
+			&i.SplitMode,
+			&i.Installments,
+			&i.FirstDueDate,
+			&i.IsFixed,
+			&i.ParentExpenseID,
+			&i.InstallmentIndex,
+			&i.InstallmentTotal,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -191,10 +269,10 @@ func (q *Queries) ListExpensesByGroup(ctx context.Context, groupID pgtype.UUID) 
 }
 
 const listExpensesByUser = `-- name: ListExpensesByUser :many
-SELECT e.id, e.group_id, e.created_by, e.description, e.total_amount, e.expense_date, e.due_date, e.category_id, e.split_type, e.is_installment, e.installment_count, e.created_at, e.updated_at FROM expenses e
+SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_at, e.updated_at FROM expenses e
 JOIN expense_splits es ON es.expense_id = e.id
 WHERE es.user_id = $1
-ORDER BY e.expense_date DESC, e.created_at DESC
+ORDER BY e.competence_date DESC, e.created_at DESC
 `
 
 func (q *Queries) ListExpensesByUser(ctx context.Context, userID pgtype.UUID) ([]Expense, error) {
@@ -209,15 +287,19 @@ func (q *Queries) ListExpensesByUser(ctx context.Context, userID pgtype.UUID) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.GroupID,
-			&i.CreatedBy,
 			&i.Description,
-			&i.TotalAmount,
-			&i.ExpenseDate,
-			&i.DueDate,
+			&i.Amount,
 			&i.CategoryID,
-			&i.SplitType,
-			&i.IsInstallment,
-			&i.InstallmentCount,
+			&i.CompetenceDate,
+			&i.DueDate,
+			&i.PaidBy,
+			&i.SplitMode,
+			&i.Installments,
+			&i.FirstDueDate,
+			&i.IsFixed,
+			&i.ParentExpenseID,
+			&i.InstallmentIndex,
+			&i.InstallmentTotal,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -234,49 +316,53 @@ func (q *Queries) ListExpensesByUser(ctx context.Context, userID pgtype.UUID) ([
 const updateExpense = `-- name: UpdateExpense :one
 UPDATE expenses
 SET description = COALESCE($2, description),
-    total_amount = COALESCE($3, total_amount),
-    expense_date = COALESCE($4, expense_date),
-    due_date = $5,
-    category_id = $6,
-    split_type = COALESCE($7, split_type),
+    amount = COALESCE($3, amount),
+    competence_date = COALESCE($4, competence_date),
+    due_date = COALESCE($5, due_date),
+    category_id = COALESCE($6, category_id),
+    split_mode = COALESCE($7, split_mode),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, group_id, created_by, description, total_amount, expense_date, due_date, category_id, split_type, is_installment, installment_count, created_at, updated_at
+RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at
 `
 
 type UpdateExpenseParams struct {
-	ID          pgtype.UUID
-	Description string
-	TotalAmount pgtype.Numeric
-	ExpenseDate pgtype.Date
-	DueDate     pgtype.Date
-	CategoryID  pgtype.UUID
-	SplitType   string
+	ID             pgtype.UUID
+	Description    string
+	Amount         pgtype.Numeric
+	CompetenceDate pgtype.Date
+	DueDate        pgtype.Date
+	CategoryID     pgtype.UUID
+	SplitMode      string
 }
 
 func (q *Queries) UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (Expense, error) {
 	row := q.db.QueryRow(ctx, updateExpense,
 		arg.ID,
 		arg.Description,
-		arg.TotalAmount,
-		arg.ExpenseDate,
+		arg.Amount,
+		arg.CompetenceDate,
 		arg.DueDate,
 		arg.CategoryID,
-		arg.SplitType,
+		arg.SplitMode,
 	)
 	var i Expense
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
-		&i.CreatedBy,
 		&i.Description,
-		&i.TotalAmount,
-		&i.ExpenseDate,
-		&i.DueDate,
+		&i.Amount,
 		&i.CategoryID,
-		&i.SplitType,
-		&i.IsInstallment,
-		&i.InstallmentCount,
+		&i.CompetenceDate,
+		&i.DueDate,
+		&i.PaidBy,
+		&i.SplitMode,
+		&i.Installments,
+		&i.FirstDueDate,
+		&i.IsFixed,
+		&i.ParentExpenseID,
+		&i.InstallmentIndex,
+		&i.InstallmentTotal,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

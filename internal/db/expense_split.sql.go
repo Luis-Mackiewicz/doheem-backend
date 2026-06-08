@@ -154,7 +154,7 @@ SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.c
 FROM expense_splits es
 JOIN expenses e ON e.id = es.expense_id
 WHERE es.user_id = $1 AND e.group_id = $2
-ORDER BY e.expense_date DESC
+ORDER BY e.competence_date DESC
 `
 
 type ListExpenseSplitsByUserParams struct {

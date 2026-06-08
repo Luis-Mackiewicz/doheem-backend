@@ -12,9 +12,9 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (name, email, password_hash, avatar_url)
-VALUES ($1, $2, $3, $4)
-RETURNING id, name, email, password_hash, avatar_url, created_at, updated_at
+INSERT INTO users (name, email, password_hash, avatar_url, phone, document, birth_date, cep)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -22,6 +22,10 @@ type CreateUserParams struct {
 	Email        string
 	PasswordHash string
 	AvatarUrl    pgtype.Text
+	Phone        pgtype.Text
+	Document     pgtype.Text
+	BirthDate    pgtype.Date
+	Cep          pgtype.Text
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -30,6 +34,10 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Email,
 		arg.PasswordHash,
 		arg.AvatarUrl,
+		arg.Phone,
+		arg.Document,
+		arg.BirthDate,
+		arg.Cep,
 	)
 	var i User
 	err := row.Scan(
@@ -38,6 +46,11 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.AvatarUrl,
+		&i.Phone,
+		&i.Document,
+		&i.BirthDate,
+		&i.Cep,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -55,7 +68,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, name, email, password_hash, avatar_url, created_at, updated_at FROM users
+SELECT id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at FROM users
 WHERE email = $1
 `
 
@@ -68,6 +81,11 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Email,
 		&i.PasswordHash,
 		&i.AvatarUrl,
+		&i.Phone,
+		&i.Document,
+		&i.BirthDate,
+		&i.Cep,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -75,7 +93,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, password_hash, avatar_url, created_at, updated_at FROM users
+SELECT id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -88,6 +106,11 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.Email,
 		&i.PasswordHash,
 		&i.AvatarUrl,
+		&i.Phone,
+		&i.Document,
+		&i.BirthDate,
+		&i.Cep,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -95,7 +118,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, name, email, password_hash, avatar_url, created_at, updated_at FROM users
+SELECT id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at FROM users
 ORDER BY created_at DESC
 `
 
@@ -114,6 +137,11 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.Email,
 			&i.PasswordHash,
 			&i.AvatarUrl,
+			&i.Phone,
+			&i.Document,
+			&i.BirthDate,
+			&i.Cep,
+			&i.IsAdmin,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -132,9 +160,13 @@ UPDATE users
 SET name = COALESCE($2, name),
     email = COALESCE($3, email),
     avatar_url = COALESCE($4, avatar_url),
+    phone = COALESCE($5, phone),
+    document = COALESCE($6, document),
+    birth_date = COALESCE($7, birth_date),
+    cep = COALESCE($8, cep),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, email, password_hash, avatar_url, created_at, updated_at
+RETURNING id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at
 `
 
 type UpdateUserParams struct {
@@ -142,6 +174,10 @@ type UpdateUserParams struct {
 	Name      string
 	Email     string
 	AvatarUrl pgtype.Text
+	Phone     pgtype.Text
+	Document  pgtype.Text
+	BirthDate pgtype.Date
+	Cep       pgtype.Text
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
@@ -150,6 +186,10 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.Name,
 		arg.Email,
 		arg.AvatarUrl,
+		arg.Phone,
+		arg.Document,
+		arg.BirthDate,
+		arg.Cep,
 	)
 	var i User
 	err := row.Scan(
@@ -158,6 +198,11 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.AvatarUrl,
+		&i.Phone,
+		&i.Document,
+		&i.BirthDate,
+		&i.Cep,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

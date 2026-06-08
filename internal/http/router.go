@@ -6,10 +6,7 @@ import (
 
 	"doheem-backend/internal/expense"
 	"doheem-backend/internal/group"
-	"doheem-backend/internal/invite"
 	"doheem-backend/internal/notification"
-	"doheem-backend/internal/payment"
-	"doheem-backend/internal/split_tag"
 	"doheem-backend/internal/task"
 	"doheem-backend/internal/user"
 
@@ -22,11 +19,8 @@ type Router struct {
 	user         *UserHandler
 	group        *GroupHandler
 	expense      *ExpenseHandler
-	payment      *PaymentHandler
 	task         *TaskHandler
-	invite       *InviteHandler
 	notification *NotificationHandler
-	splitTag     *SplitTagHandler
 	rdb          *redis.Client
 	pool         *pgxpool.Pool
 }
@@ -36,11 +30,8 @@ func NewRouter(
 	userSvc *user.UserService,
 	groupSvc *group.GroupService,
 	expenseSvc *expense.ExpenseService,
-	paymentSvc *payment.PaymentService,
 	taskSvc *task.TaskService,
-	inviteSvc *invite.InviteService,
 	notificationSvc *notification.NotificationService,
-	splitTagSvc *split_tag.SplitTagService,
 	rdb *redis.Client,
 	pool *pgxpool.Pool,
 ) *Router {
@@ -49,11 +40,8 @@ func NewRouter(
 		user:         NewUserHandler(userSvc, jwt),
 		group:        NewGroupHandler(groupSvc),
 		expense:      NewExpenseHandler(expenseSvc),
-		payment:      NewPaymentHandler(paymentSvc),
 		task:         NewTaskHandler(taskSvc),
-		invite:       NewInviteHandler(inviteSvc),
 		notification: NewNotificationHandler(notificationSvc),
-		splitTag:     NewSplitTagHandler(splitTagSvc),
 		rdb:          rdb,
 		pool:         pool,
 	}
@@ -79,13 +67,15 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("GET /api/groups", rt.auth(rt.group.List))
 	mux.Handle("GET /api/groups/{id}", rt.auth(rt.group.GetByID))
 	mux.Handle("PUT /api/groups/{id}", rt.auth(rt.group.Update))
-	mux.Handle("DELETE /api/groups/{id}", rt.auth(rt.group.SoftDelete))
-	mux.Handle("PATCH /api/groups/{id}/deactivate", rt.auth(rt.group.Deactivate))
-	mux.Handle("PATCH /api/groups/{id}/activate", rt.auth(rt.group.Activate))
+	// DELETE /api/groups/{id} — not implemented yet
 	mux.Handle("GET /api/groups/{id}/members", rt.auth(rt.group.ListMembers))
 	mux.Handle("POST /api/groups/{id}/members", rt.auth(rt.group.AddMember))
 	mux.Handle("PUT /api/groups/{id}/members/{userId}", rt.auth(rt.group.UpdateMemberRole))
 	mux.Handle("DELETE /api/groups/{id}/members/{userId}", rt.auth(rt.group.RemoveMember))
+
+	mux.Handle("POST /api/groups/{id}/join", rt.auth(rt.group.Join))
+	mux.Handle("POST /api/groups/{id}/regenerate-invite", rt.auth(rt.group.RegenerateInvite))
+	mux.Handle("GET /api/groups/{id}/invite-token", rt.auth(rt.group.GetInviteToken))
 
 	mux.Handle("POST /api/groups/{groupId}/expenses", rt.auth(rt.expense.Create))
 	mux.Handle("GET /api/groups/{groupId}/expenses", rt.auth(rt.expense.ListByGroup))
@@ -94,21 +84,12 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("DELETE /api/expenses/{id}", rt.auth(rt.expense.Delete))
 	mux.Handle("GET /api/expenses/{id}/splits", rt.auth(rt.expense.ListSplits))
 	mux.Handle("PATCH /api/expenses/splits/{id}/pay", rt.auth(rt.expense.MarkSplitAsPaid))
-	mux.Handle("GET /api/expenses/{id}/installments", rt.auth(rt.expense.ListInstallments))
-	mux.Handle("PATCH /api/expenses/installments/{id}/pay", rt.auth(rt.expense.MarkInstallmentAsPaid))
+	mux.Handle("GET /api/expenses/{id}/installments", rt.auth(rt.expense.ListByParent))
 
-	mux.Handle("POST /api/groups/{groupId}/categories", rt.auth(rt.expense.CreateCategory))
-	mux.Handle("GET /api/groups/{groupId}/categories", rt.auth(rt.expense.ListCategories))
+	mux.Handle("POST /api/categories", rt.auth(rt.expense.CreateCategory))
+	mux.Handle("GET /api/categories", rt.auth(rt.expense.ListCategories))
 	mux.Handle("PUT /api/categories/{id}", rt.auth(rt.expense.UpdateCategory))
 	mux.Handle("DELETE /api/categories/{id}", rt.auth(rt.expense.DeleteCategory))
-
-	mux.Handle("POST /api/groups/{groupId}/payments", rt.auth(rt.payment.Create))
-	mux.Handle("GET /api/groups/{groupId}/payments", rt.auth(rt.payment.ListByGroup))
-	mux.Handle("GET /api/payments/{id}", rt.auth(rt.payment.GetByID))
-	mux.Handle("PATCH /api/payments/{id}/confirm", rt.auth(rt.payment.Confirm))
-	mux.Handle("PATCH /api/payments/{id}/cancel", rt.auth(rt.payment.Cancel))
-	mux.Handle("DELETE /api/payments/{id}", rt.auth(rt.payment.Delete))
-	mux.Handle("POST /api/payments/{id}/attachments", rt.auth(rt.payment.UploadAttachment))
 
 	mux.Handle("POST /api/groups/{groupId}/tasks", rt.auth(rt.task.Create))
 	mux.Handle("GET /api/groups/{groupId}/tasks", rt.auth(rt.task.ListByGroup))
@@ -120,24 +101,11 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("PATCH /api/tasks/occurrences/{id}/complete", rt.auth(rt.task.CompleteOccurrence))
 	mux.Handle("PATCH /api/tasks/occurrences/{id}/discard", rt.auth(rt.task.DiscardOccurrence))
 
-	mux.Handle("POST /api/groups/{groupId}/invites", rt.auth(rt.invite.Create))
-	mux.Handle("GET /api/groups/{groupId}/invites", rt.auth(rt.invite.ListByGroup))
-	mux.Handle("GET /api/invites/pending", rt.auth(rt.invite.ListPending))
-	mux.Handle("POST /api/invites/{id}/accept", rt.auth(rt.invite.Accept))
-	mux.Handle("PATCH /api/invites/{id}/revoke", rt.auth(rt.invite.Revoke))
-
 	mux.Handle("GET /api/notifications", rt.auth(rt.notification.List))
 	mux.Handle("GET /api/notifications/unread", rt.auth(rt.notification.ListUnread))
 	mux.Handle("PATCH /api/notifications/{id}/read", rt.auth(rt.notification.MarkAsRead))
 	mux.Handle("PATCH /api/notifications/read-all", rt.auth(rt.notification.MarkAllAsRead))
 	mux.Handle("DELETE /api/notifications/{id}", rt.auth(rt.notification.Delete))
-
-	mux.Handle("POST /api/groups/{groupId}/split-tags", rt.auth(rt.splitTag.Create))
-	mux.Handle("GET /api/groups/{groupId}/split-tags", rt.auth(rt.splitTag.ListByGroup))
-	mux.Handle("DELETE /api/split-tags/{id}", rt.auth(rt.splitTag.Delete))
-	mux.Handle("GET /api/split-tags/{id}/members", rt.auth(rt.splitTag.ListMembers))
-	mux.Handle("POST /api/split-tags/{id}/members", rt.auth(rt.splitTag.AddMember))
-	mux.Handle("DELETE /api/split-tags/{id}/members/{userId}", rt.auth(rt.splitTag.RemoveMember))
 
 	var h http.Handler = mux
 	h = RateLimitMiddleware(NewRateLimiter(rt.rdb, 100, time.Minute))(h)

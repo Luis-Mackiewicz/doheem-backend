@@ -10,26 +10,24 @@ WHERE group_id = $1 AND user_id = $2;
 SELECT gm.*, u.name, u.email, u.avatar_url
 FROM group_members gm
 JOIN users u ON u.id = gm.user_id
-WHERE gm.group_id = $1 AND gm.is_active = true
+WHERE gm.group_id = $1
 ORDER BY gm.joined_at;
 
 -- name: CreateGroupMember :one
-INSERT INTO group_members (group_id, user_id, role)
+INSERT INTO group_members (group_id, user_id, is_admin)
 VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: UpdateGroupMemberRole :one
 UPDATE group_members
-SET role = $3
+SET is_admin = $3
 WHERE group_id = $1 AND user_id = $2
 RETURNING *;
 
 -- name: RemoveGroupMember :exec
-UPDATE group_members
-SET is_active = false,
-    left_at = NOW()
+DELETE FROM group_members
 WHERE group_id = $1 AND user_id = $2;
 
--- name: CountActiveGroupMembers :one
+-- name: CountGroupMembers :one
 SELECT COUNT(*) FROM group_members
-WHERE group_id = $1 AND is_active = true;
+WHERE group_id = $1;

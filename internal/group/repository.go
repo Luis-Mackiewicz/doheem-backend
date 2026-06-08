@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"doheem-backend/internal/db"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type GroupRepo struct {
@@ -31,10 +33,7 @@ func (r *GroupRepo) ListByUserID(ctx context.Context, userID string) ([]Group, e
 }
 
 func (r *GroupRepo) Create(ctx context.Context, params CreateGroupParams) (Group, error) {
-	g, err := r.q.CreateGroup(ctx, db.CreateGroupParams{
-		Name:     params.Name,
-		Currency: params.Currency,
-	})
+	g, err := r.q.CreateGroup(ctx, params.Name)
 	if err != nil {
 		return Group{}, err
 	}
@@ -42,18 +41,14 @@ func (r *GroupRepo) Create(ctx context.Context, params CreateGroupParams) (Group
 }
 
 func (r *GroupRepo) Update(ctx context.Context, id string, params UpdateGroupParams) (Group, error) {
-	var name string
-	if params.Name != nil {
-		name = *params.Name
-	}
-	var currency string
-	if params.Currency != nil {
-		currency = *params.Currency
-	}
 	g, err := r.q.UpdateGroup(ctx, db.UpdateGroupParams{
-		ID:       db.UUIDFromString(id),
-		Name:     name,
-		Currency: currency,
+		ID:          db.UUIDFromString(id),
+		Name:        deptrStr(params.Name),
+		Description: deptrStr(params.Description),
+		MonthlyFee:  deptrNumeric(params.MonthlyFee),
+		Cnpj:        deptrStr(params.Cnpj),
+		Cep:         deptrStr(params.Cep),
+		PhotoUrl:    db.TextFromStringPtr(params.PhotoURL),
 	})
 	if err != nil {
 		return Group{}, err
@@ -61,28 +56,26 @@ func (r *GroupRepo) Update(ctx context.Context, id string, params UpdateGroupPar
 	return toGroup(g), nil
 }
 
-func (r *GroupRepo) SoftDelete(ctx context.Context, id string) error {
-	return r.q.SoftDeleteGroup(ctx, db.UUIDFromString(id))
-}
-
-func (r *GroupRepo) Deactivate(ctx context.Context, id string) error {
-	return r.q.DeactivateGroup(ctx, db.UUIDFromString(id))
-}
-
-func (r *GroupRepo) Activate(ctx context.Context, id string) error {
-	return r.q.ActivateGroup(ctx, db.UUIDFromString(id))
+func (r *GroupRepo) RegenerateInviteToken(ctx context.Context, id, token string) error {
+	_, err := r.q.RegenerateInviteToken(ctx, db.RegenerateInviteTokenParams{
+		ID:          db.UUIDFromString(id),
+		InviteToken: pgtype.Text{String: token, Valid: true},
+	})
+	return err
 }
 
 func toGroup(g db.Group) Group {
 	return Group{
-		ID:            db.UUIDToString(g.ID),
-		Name:          g.Name,
-		Currency:      g.Currency,
-		IsActive:      g.IsActive,
-		InactiveSince: db.TimestamptzToTimePtr(g.InactiveSince),
-		CreatedAt:     g.CreatedAt.Time,
-		UpdatedAt:     g.UpdatedAt.Time,
-		DeletedAt:     db.TimestamptzToTimePtr(g.DeletedAt),
+		ID:          db.UUIDToString(g.ID),
+		Name:        g.Name,
+		Description: g.Description,
+		MonthlyFee:  db.NumericToFloat64(g.MonthlyFee),
+		Cnpj:        g.Cnpj,
+		Cep:         g.Cep,
+		PhotoURL:    db.TextToStringPtr(g.PhotoUrl),
+		InviteToken: db.TextToStringPtr(g.InviteToken),
+		CreatedAt:   g.CreatedAt.Time,
+		UpdatedAt:   g.UpdatedAt.Time,
 	}
 }
 
@@ -94,31 +87,16 @@ func toGroups(groups []db.Group) []Group {
 	return result
 }
 
-func toGroupMember(gm db.GroupMember) GroupMember {
-	return GroupMember{
-		ID:       db.UUIDToString(gm.ID),
-		GroupID:  db.UUIDToString(gm.GroupID),
-		UserID:   db.UUIDToString(gm.UserID),
-		Role:     gm.Role,
-		JoinedAt: gm.JoinedAt.Time,
-		LeftAt:   db.TimestamptzToTimePtr(gm.LeftAt),
-		IsActive: gm.IsActive,
+func deptrStr(s *string) string {
+	if s != nil {
+		return *s
 	}
+	return ""
 }
 
-func toGroupMemberWithUser(row db.ListGroupMembersRow) GroupMemberWithUser {
-	return GroupMemberWithUser{
-		GroupMember: GroupMember{
-			ID:       db.UUIDToString(row.ID),
-			GroupID:  db.UUIDToString(row.GroupID),
-			UserID:   db.UUIDToString(row.UserID),
-			Role:     row.Role,
-			JoinedAt: row.JoinedAt.Time,
-			LeftAt:   db.TimestamptzToTimePtr(row.LeftAt),
-			IsActive: row.IsActive,
-		},
-		UserName:  row.Name,
-		UserEmail: row.Email,
-		AvatarURL: db.TextToStringPtr(row.AvatarUrl),
+func deptrNumeric(f *float64) pgtype.Numeric {
+	if f != nil {
+		return db.NumericFromFloat64(*f)
 	}
+	return pgtype.Numeric{}
 }

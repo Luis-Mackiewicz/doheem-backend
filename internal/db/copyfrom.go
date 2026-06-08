@@ -42,38 +42,3 @@ func (r iteratorForCreateExpenseSplits) Err() error {
 func (q *Queries) CreateExpenseSplits(ctx context.Context, arg []CreateExpenseSplitsParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"expense_splits"}, []string{"expense_id", "user_id", "amount"}, &iteratorForCreateExpenseSplits{rows: arg})
 }
-
-// iteratorForCreateInstallments implements pgx.CopyFromSource.
-type iteratorForCreateInstallments struct {
-	rows                 []CreateInstallmentsParams
-	skippedFirstNextCall bool
-}
-
-func (r *iteratorForCreateInstallments) Next() bool {
-	if len(r.rows) == 0 {
-		return false
-	}
-	if !r.skippedFirstNextCall {
-		r.skippedFirstNextCall = true
-		return true
-	}
-	r.rows = r.rows[1:]
-	return len(r.rows) > 0
-}
-
-func (r iteratorForCreateInstallments) Values() ([]interface{}, error) {
-	return []interface{}{
-		r.rows[0].ExpenseID,
-		r.rows[0].InstallmentNumber,
-		r.rows[0].Amount,
-		r.rows[0].DueDate,
-	}, nil
-}
-
-func (r iteratorForCreateInstallments) Err() error {
-	return nil
-}
-
-func (q *Queries) CreateInstallments(ctx context.Context, arg []CreateInstallmentsParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"installments"}, []string{"expense_id", "installment_number", "amount", "due_date"}, &iteratorForCreateInstallments{rows: arg})
-}

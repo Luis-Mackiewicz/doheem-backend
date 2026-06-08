@@ -15,58 +15,34 @@ func NewTaskHandler(svc *task.TaskService) *TaskHandler {
 	return &TaskHandler{svc: svc}
 }
 
-// Create creates a new task in a group
-// @Summary Create a task
-// @Description Create a new task in a group
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param groupId path string true "Group ID"
-// @Success 201 {object} taskResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Group not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/groups/{groupId}/tasks [post]
-// @Security BearerAuth
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
 
 	var req struct {
-		Title            string  `json:"title"              validate:"required"`
-		Description      *string `json:"description,omitempty"`
-		AssignedTo       *string `json:"assigned_to,omitempty"`
-		Category         *string `json:"category,omitempty"`
-		IsRecurring      bool    `json:"is_recurring"`
-		RecurringPeriod  *string `json:"recurring_period,omitempty"`
-		RecurringEndedAt *string `json:"recurring_ended_at,omitempty"`
+		Title       string `json:"title"        validate:"required"`
+		Description string `json:"description,omitempty"`
+		AssignedTo  string `json:"assigned_to"   validate:"required"`
+		DueDate     string `json:"due_date"      validate:"required"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
 
-	var recurringEndedAt *time.Time
-	if req.RecurringEndedAt != nil {
-		t, err := time.Parse("2006-01-02T15:04:05Z07:00", *req.RecurringEndedAt)
-		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid recurring_ended_at format")
-			return
-		}
-		recurringEndedAt = &t
+	dueDate, err := time.Parse("2006-01-02", req.DueDate)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid due_date, use YYYY-MM-DD")
+		return
 	}
 
 	created, err := h.svc.Create(r.Context(), task.CreateTaskParams{
-		GroupID:          groupID,
-		Title:            req.Title,
-		Description:      req.Description,
-		AssignedTo:       req.AssignedTo,
-		Category:         req.Category,
-		IsRecurring:      req.IsRecurring,
-		RecurringPeriod:  req.RecurringPeriod,
-		RecurringEndedAt: recurringEndedAt,
-		CreatedBy:        userID,
+		GroupID:     groupID,
+		Title:       req.Title,
+		Description: req.Description,
+		AssignedTo:  req.AssignedTo,
+		CreatedBy:   userID,
+		DueDate:     dueDate,
 	})
 	if err != nil {
 		handleError(w, r, err)
@@ -75,19 +51,6 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toTaskResponse(created))
 }
 
-// ListByGroup lists tasks in a group
-// @Summary List tasks by group
-// @Description List all tasks for a specific group
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param groupId path string true "Group ID"
-// @Success 200 {array} taskResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Group not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/groups/{groupId}/tasks [get]
-// @Security BearerAuth
 func (h *TaskHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	tasks, err := h.svc.ListByGroup(r.Context(), groupID)
@@ -112,19 +75,6 @@ func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
-// GetByID gets a task by ID
-// @Summary Get task by ID
-// @Description Get a single task by its unique identifier
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param id path string true "Task ID"
-// @Success 200 {object} taskResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Task not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/{id} [get]
-// @Security BearerAuth
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	task, err := h.svc.GetByID(r.Context(), id)
@@ -135,51 +85,36 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toTaskResponse(task))
 }
 
-// Update updates a task
-// @Summary Update a task
-// @Description Update an existing task's details
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param id path string true "Task ID"
-// @Success 200 {object} taskResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Task not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/{id} [put]
-// @Security BearerAuth
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		Title            *string `json:"title,omitempty"`
-		Description      *string `json:"description,omitempty"`
-		AssignedTo       *string `json:"assigned_to,omitempty"`
-		Category         *string `json:"category,omitempty"`
-		IsRecurring      *bool   `json:"is_recurring,omitempty"`
-		RecurringPeriod  *string `json:"recurring_period,omitempty"`
-		RecurringEndedAt *string `json:"recurring_ended_at,omitempty"`
+		Title       *string `json:"title,omitempty"`
+		Description *string `json:"description,omitempty"`
+		AssignedTo  *string `json:"assigned_to,omitempty"`
+		Status      *string `json:"status,omitempty"`
+		Position    *int32  `json:"position,omitempty"`
+		DueDate     *string `json:"due_date,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
-	var recurringEndedAt *time.Time
-	if req.RecurringEndedAt != nil {
-		t, err := time.Parse("2006-01-02T15:04:05Z07:00", *req.RecurringEndedAt)
+
+	params := task.UpdateTaskParams{
+		Title:       req.Title,
+		Description: req.Description,
+		AssignedTo:  req.AssignedTo,
+		Status:      req.Status,
+		Position:    req.Position,
+	}
+	if req.DueDate != nil {
+		t, err := time.Parse("2006-01-02", *req.DueDate)
 		if err == nil {
-			recurringEndedAt = &t
+			params.DueDate = &t
 		}
 	}
-	updated, err := h.svc.Update(r.Context(), id, task.UpdateTaskParams{
-		Title:            req.Title,
-		Description:      req.Description,
-		AssignedTo:       req.AssignedTo,
-		Category:         req.Category,
-		IsRecurring:      req.IsRecurring,
-		RecurringPeriod:  req.RecurringPeriod,
-		RecurringEndedAt: recurringEndedAt,
-	})
+
+	updated, err := h.svc.Update(r.Context(), id, params)
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -187,19 +122,6 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, toTaskResponse(updated))
 }
 
-// Delete deletes a task
-// @Summary Delete a task
-// @Description Permanently delete a task
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param id path string true "Task ID"
-// @Success 204 {object} nil
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Task not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/{id} [delete]
-// @Security BearerAuth
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
@@ -209,20 +131,6 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// CreateOccurrence creates a new occurrence for a task
-// @Summary Create a task occurrence
-// @Description Create a new occurrence (instance) for a recurring task
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param taskId path string true "Task ID"
-// @Success 201 {object} taskOccurrenceResponse
-// @Failure 400 {object} map[string]any "Validation error"
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Task not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/{taskId}/occurrences [post]
-// @Security BearerAuth
 func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("taskId")
 	var req struct {
@@ -246,32 +154,6 @@ func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, toTaskOccurrenceResponse(occurrence))
 }
 
-// ListOccurrences lists occurrences for a task
-// @Summary List task occurrences
-// @Description List all occurrences for a specific task
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param id path string true "Task ID"
-// @Success 200 {array} taskOccurrenceResponse
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Task not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/{id}/occurrences [get]
-// @Security BearerAuth
-// CompleteOccurrence marks a task occurrence as complete
-// @Summary Complete a task occurrence
-// @Description Mark a task occurrence as completed by the authenticated user
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param id path string true "Occurrence ID"
-// @Success 204 {object} nil
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Occurrence not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/occurrences/{id}/complete [patch]
-// @Security BearerAuth
 func (h *TaskHandler) CompleteOccurrence(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
@@ -282,19 +164,6 @@ func (h *TaskHandler) CompleteOccurrence(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// DiscardOccurrence discards a task occurrence
-// @Summary Discard a task occurrence
-// @Description Discard (mark as discarded) a task occurrence
-// @Tags Tasks
-// @Accept json
-// @Produce json
-// @Param id path string true "Occurrence ID"
-// @Success 204 {object} nil
-// @Failure 401 {object} map[string]any "Unauthorized"
-// @Failure 404 {object} map[string]any "Occurrence not found"
-// @Failure 500 {object} map[string]any "Internal server error"
-// @Router /api/tasks/occurrences/{id}/discard [patch]
-// @Security BearerAuth
 func (h *TaskHandler) DiscardOccurrence(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.DiscardOccurrence(r.Context(), id); err != nil {
@@ -305,18 +174,17 @@ func (h *TaskHandler) DiscardOccurrence(w http.ResponseWriter, r *http.Request) 
 }
 
 type taskResponse struct {
-	ID               string   `json:"id"`
-	GroupID          string   `json:"group_id"`
-	Title            string   `json:"title"`
-	Description      *string  `json:"description,omitempty"`
-	AssignedTo       *string  `json:"assigned_to,omitempty"`
-	Category         *string  `json:"category,omitempty"`
-	IsRecurring      bool     `json:"is_recurring"`
-	RecurringPeriod  *string  `json:"recurring_period,omitempty"`
-	RecurringEndedAt *string  `json:"recurring_ended_at,omitempty"`
-	CreatedBy        string   `json:"created_by"`
-	CreatedAt        string   `json:"created_at"`
-	UpdatedAt        string   `json:"updated_at"`
+	ID          string `json:"id"`
+	GroupID     string `json:"group_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	AssignedTo  string `json:"assigned_to"`
+	CreatedBy   string `json:"created_by"`
+	Status      string `json:"status"`
+	Position    int32  `json:"position"`
+	DueDate     string `json:"due_date"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 type taskOccurrenceResponse struct {
@@ -329,26 +197,19 @@ type taskOccurrenceResponse struct {
 }
 
 func toTaskResponse(t task.Task) taskResponse {
-	r := taskResponse{
+	return taskResponse{
 		ID:          t.ID,
 		GroupID:     t.GroupID,
 		Title:       t.Title,
 		Description: t.Description,
 		AssignedTo:  t.AssignedTo,
-		Category:    t.Category,
-		IsRecurring: t.IsRecurring,
 		CreatedBy:   t.CreatedBy,
+		Status:      t.Status,
+		Position:    t.Position,
+		DueDate:     t.DueDate.Format("2006-01-02"),
 		CreatedAt:   t.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:   t.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
-	if t.RecurringPeriod != nil {
-		r.RecurringPeriod = t.RecurringPeriod
-	}
-	if t.RecurringEndedAt != nil {
-		s := t.RecurringEndedAt.Format("2006-01-02T15:04:05Z07:00")
-		r.RecurringEndedAt = &s
-	}
-	return r
 }
 
 func toTaskResponses(tasks []task.Task) []taskResponse {

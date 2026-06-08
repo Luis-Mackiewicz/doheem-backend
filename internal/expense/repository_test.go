@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"doheem-backend/internal/db"
 	"doheem-backend/internal/dbtest"
 
 	"github.com/stretchr/testify/assert"
@@ -19,23 +20,25 @@ func TestExpenseRepo_CreateAndGetByID(t *testing.T) {
 	user := dbtest.CreateTestUser(t, q)
 	group := dbtest.CreateTestGroup(t, q, user)
 	categoryRepo := NewExpenseCategoryRepo(q)
-	category, err := categoryRepo.Create(ctx, group.ID, "Food")
+	category, err := categoryRepo.Create(ctx, "food", "Food")
 	require.NoError(t, err)
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID:     group.ID,
-		CreatedBy:   user.ID,
-		Description: "Pizza dinner",
-		TotalAmount: 120.00,
-		ExpenseDate: time.Now(),
-		CategoryID:  &category.ID,
-		SplitType:   "equal_all",
+		GroupID:        group.ID,
+		Description:    "Pizza dinner",
+		Amount:         120.00,
+		CategoryID:     category.ID,
+		CompetenceDate: time.Now(),
+		DueDate:        time.Now().AddDate(0, 0, 30),
+		PaidBy:         user.ID,
+		SplitMode:      "equal",
+		Installments:   1,
 	})
 	require.NoError(t, err)
 	assert.NotEmpty(t, expense.ID)
 	assert.Equal(t, "Pizza dinner", expense.Description)
-	assert.Equal(t, 120.00, expense.TotalAmount)
-	assert.Equal(t, "equal_all", expense.SplitType)
+	assert.Equal(t, 120.00, expense.Amount)
+	assert.Equal(t, "equal", expense.SplitMode)
 
 	got, err := expenseRepo.GetByID(ctx, expense.ID)
 	require.NoError(t, err)
@@ -49,14 +52,19 @@ func TestExpenseRepo_ListByGroup(t *testing.T) {
 
 	user := dbtest.CreateTestUser(t, q)
 	group := dbtest.CreateTestGroup(t, q, user)
+	category := createTestCategory(t, q)
 
 	expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID: group.ID, CreatedBy: user.ID, Description: "Expense 1",
-		TotalAmount: 50, ExpenseDate: time.Now(), SplitType: "equal_all",
+		GroupID: group.ID, Description: "Expense 1",
+		Amount: 50, CategoryID: category.ID, CompetenceDate: time.Now(),
+		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
+		Installments: 1,
 	})
 	expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID: group.ID, CreatedBy: user.ID, Description: "Expense 2",
-		TotalAmount: 100, ExpenseDate: time.Now(), SplitType: "equal_all",
+		GroupID: group.ID, Description: "Expense 2",
+		Amount: 100, CategoryID: category.ID, CompetenceDate: time.Now(),
+		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
+		Installments: 1,
 	})
 
 	expenses, err := expenseRepo.ListByGroup(ctx, group.ID)
@@ -71,10 +79,13 @@ func TestExpenseRepo_Update(t *testing.T) {
 
 	user := dbtest.CreateTestUser(t, q)
 	group := dbtest.CreateTestGroup(t, q, user)
+	category := createTestCategory(t, q)
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID: group.ID, CreatedBy: user.ID, Description: "Original",
-		TotalAmount: 100, ExpenseDate: time.Now(), SplitType: "equal_all",
+		GroupID: group.ID, Description: "Original",
+		Amount: 100, CategoryID: category.ID, CompetenceDate: time.Now(),
+		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
+		Installments: 1,
 	})
 	require.NoError(t, err)
 
@@ -82,11 +93,11 @@ func TestExpenseRepo_Update(t *testing.T) {
 	newSplit := "custom"
 	updated, err := expenseRepo.Update(ctx, expense.ID, UpdateExpenseParams{
 		Description: &newDesc,
-		SplitType:   &newSplit,
+		SplitMode:   &newSplit,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "Updated", updated.Description)
-	assert.Equal(t, "custom", updated.SplitType)
+	assert.Equal(t, "custom", updated.SplitMode)
 }
 
 func TestExpenseRepo_Delete(t *testing.T) {
@@ -96,10 +107,13 @@ func TestExpenseRepo_Delete(t *testing.T) {
 
 	user := dbtest.CreateTestUser(t, q)
 	group := dbtest.CreateTestGroup(t, q, user)
+	category := createTestCategory(t, q)
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID: group.ID, CreatedBy: user.ID, Description: "Delete me",
-		TotalAmount: 50, ExpenseDate: time.Now(), SplitType: "equal_all",
+		GroupID: group.ID, Description: "Delete me",
+		Amount: 50, CategoryID: category.ID, CompetenceDate: time.Now(),
+		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
+		Installments: 1,
 	})
 	require.NoError(t, err)
 
@@ -115,25 +129,24 @@ func TestExpenseCategoryRepo_CreateAndList(t *testing.T) {
 	categoryRepo := NewExpenseCategoryRepo(q)
 	ctx := context.Background()
 
-	user := dbtest.CreateTestUser(t, q)
-	group := dbtest.CreateTestGroup(t, q, user)
-
-	cat1, err := categoryRepo.Create(ctx, group.ID, "Food")
+	cat1, err := categoryRepo.Create(ctx, "food", "Food")
 	require.NoError(t, err)
-	cat2, err := categoryRepo.Create(ctx, group.ID, "Transport")
+	cat2, err := categoryRepo.Create(ctx, "transport", "Transport")
 	require.NoError(t, err)
 
-	categories, err := categoryRepo.ListByGroup(ctx, group.ID)
+	categories, err := categoryRepo.ListAll(ctx)
 	require.NoError(t, err)
-	assert.Len(t, categories, 2)
+	assert.Len(t, categories, 9)
 
 	got, err := categoryRepo.GetByID(ctx, cat1.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "Food", got.Name)
+	assert.Equal(t, "food", got.Slug)
+	assert.Equal(t, "Food", got.Label)
 
-	updated, err := categoryRepo.Update(ctx, cat2.ID, group.ID, "Travel")
+	updated, err := categoryRepo.Update(ctx, cat2.ID, "travel", "Travel")
 	require.NoError(t, err)
-	assert.Equal(t, "Travel", updated.Name)
+	assert.Equal(t, "travel", updated.Slug)
+	assert.Equal(t, "Travel", updated.Label)
 }
 
 func TestExpenseSplitRepo_CreateMany(t *testing.T) {
@@ -145,10 +158,13 @@ func TestExpenseSplitRepo_CreateMany(t *testing.T) {
 	user := dbtest.CreateTestUser(t, q)
 	group := dbtest.CreateTestGroup(t, q, user)
 	user2 := dbtest.CreateTestUser(t, q)
+	category := createTestCategory(t, q)
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID: group.ID, CreatedBy: user.ID, Description: "Split test",
-		TotalAmount: 100, ExpenseDate: time.Now(), SplitType: "custom",
+		GroupID: group.ID, Description: "Split test",
+		Amount: 100, CategoryID: category.ID, CompetenceDate: time.Now(),
+		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "custom",
+		Installments: 1,
 	})
 	require.NoError(t, err)
 
@@ -171,37 +187,15 @@ func TestExpenseSplitRepo_CreateMany(t *testing.T) {
 	assert.True(t, gotSplit.IsPaid)
 }
 
-func TestInstallmentRepo_CreateMany(t *testing.T) {
-	q := dbtest.NewTxQueries(t)
-	expenseRepo := NewExpenseRepo(q)
-	installmentRepo := NewInstallmentRepo(q)
+func createTestCategory(t *testing.T, q *db.Queries) ExpenseCategory {
 	ctx := context.Background()
-
-	user := dbtest.CreateTestUser(t, q)
-	group := dbtest.CreateTestGroup(t, q, user)
-
-	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
-		GroupID: group.ID, CreatedBy: user.ID, Description: "Installment test",
-		TotalAmount: 300, ExpenseDate: time.Now(), SplitType: "equal_all",
-	})
+	categoryRepo := NewExpenseCategoryRepo(q)
+	categories, err := categoryRepo.ListAll(ctx)
 	require.NoError(t, err)
-
-	count, err := installmentRepo.CreateMany(ctx, expense.ID, []CreateInstallmentParams{
-		{InstallmentNumber: 1, Amount: 100, DueDate: time.Now().AddDate(0, 1, 0)},
-		{InstallmentNumber: 2, Amount: 100, DueDate: time.Now().AddDate(0, 2, 0)},
-		{InstallmentNumber: 3, Amount: 100, DueDate: time.Now().AddDate(0, 3, 0)},
-	})
+	if len(categories) > 0 {
+		return categories[0]
+	}
+	cat, err := categoryRepo.Create(ctx, "test", "Test")
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), count)
-
-	installments, err := installmentRepo.ListByExpense(ctx, expense.ID)
-	require.NoError(t, err)
-	assert.Len(t, installments, 3)
-
-	err = installmentRepo.MarkAsPaid(ctx, installments[0].ID)
-	require.NoError(t, err)
-
-	got, err := installmentRepo.GetByID(ctx, installments[0].ID)
-	require.NoError(t, err)
-	assert.True(t, got.IsPaid)
+	return cat
 }

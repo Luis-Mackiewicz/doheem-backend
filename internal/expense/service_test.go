@@ -35,6 +35,11 @@ func (m *mockExpenseRepo) ListByCategory(ctx context.Context, categoryID string)
 	return args.Get(0).([]Expense), args.Error(1)
 }
 
+func (m *mockExpenseRepo) ListByParent(ctx context.Context, parentID string) ([]Expense, error) {
+	args := m.Called(ctx, parentID)
+	return args.Get(0).([]Expense), args.Error(1)
+}
+
 func (m *mockExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (Expense, error) {
 	args := m.Called(ctx, params)
 	return args.Get(0).(Expense), args.Error(1)
@@ -47,6 +52,11 @@ func (m *mockExpenseRepo) Update(ctx context.Context, id string, params UpdateEx
 
 func (m *mockExpenseRepo) Delete(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *mockExpenseRepo) DeleteByParent(ctx context.Context, parentID string) error {
+	args := m.Called(ctx, parentID)
 	return args.Error(0)
 }
 
@@ -99,40 +109,6 @@ func (m *mockExpenseSplitRepo) GetUserBalance(ctx context.Context, userID, group
 	return args.Get(0).(UserBalance), args.Error(1)
 }
 
-type mockInstallmentRepo struct {
-	mock.Mock
-}
-
-func (m *mockInstallmentRepo) GetByID(ctx context.Context, id string) (Installment, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(Installment), args.Error(1)
-}
-
-func (m *mockInstallmentRepo) ListByExpense(ctx context.Context, expenseID string) ([]Installment, error) {
-	args := m.Called(ctx, expenseID)
-	return args.Get(0).([]Installment), args.Error(1)
-}
-
-func (m *mockInstallmentRepo) Create(ctx context.Context, params CreateInstallmentParams) (Installment, error) {
-	args := m.Called(ctx, params)
-	return args.Get(0).(Installment), args.Error(1)
-}
-
-func (m *mockInstallmentRepo) CreateMany(ctx context.Context, expenseID string, installments []CreateInstallmentParams) (int64, error) {
-	args := m.Called(ctx, expenseID, installments)
-	return args.Get(0).(int64), args.Error(1)
-}
-
-func (m *mockInstallmentRepo) MarkAsPaid(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
-	return args.Error(0)
-}
-
-func (m *mockInstallmentRepo) DeleteByExpense(ctx context.Context, expenseID string) error {
-	args := m.Called(ctx, expenseID)
-	return args.Error(0)
-}
-
 type mockCategoryRepo struct {
 	mock.Mock
 }
@@ -142,23 +118,23 @@ func (m *mockCategoryRepo) GetByID(ctx context.Context, id string) (ExpenseCateg
 	return args.Get(0).(ExpenseCategory), args.Error(1)
 }
 
-func (m *mockCategoryRepo) ListByGroup(ctx context.Context, groupID string) ([]ExpenseCategory, error) {
-	args := m.Called(ctx, groupID)
+func (m *mockCategoryRepo) ListAll(ctx context.Context) ([]ExpenseCategory, error) {
+	args := m.Called(ctx)
 	return args.Get(0).([]ExpenseCategory), args.Error(1)
 }
 
-func (m *mockCategoryRepo) Create(ctx context.Context, groupID, name string) (ExpenseCategory, error) {
-	args := m.Called(ctx, groupID, name)
+func (m *mockCategoryRepo) Create(ctx context.Context, slug, label string) (ExpenseCategory, error) {
+	args := m.Called(ctx, slug, label)
 	return args.Get(0).(ExpenseCategory), args.Error(1)
 }
 
-func (m *mockCategoryRepo) Update(ctx context.Context, id, groupID, name string) (ExpenseCategory, error) {
-	args := m.Called(ctx, id, groupID, name)
+func (m *mockCategoryRepo) Update(ctx context.Context, id, slug, label string) (ExpenseCategory, error) {
+	args := m.Called(ctx, id, slug, label)
 	return args.Get(0).(ExpenseCategory), args.Error(1)
 }
 
-func (m *mockCategoryRepo) Delete(ctx context.Context, id, groupID string) error {
-	args := m.Called(ctx, id, groupID)
+func (m *mockCategoryRepo) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
@@ -178,50 +154,40 @@ func (m *mockGroupMemberRepo) ListByGroup(ctx context.Context, groupID string) (
 	args := m.Called(ctx, groupID)
 	return args.Get(0).([]group.GroupMemberWithUser), args.Error(1)
 }
-func (m *mockGroupMemberRepo) Create(ctx context.Context, groupID, userID, role string) (group.GroupMember, error) {
-	args := m.Called(ctx, groupID, userID, role)
+func (m *mockGroupMemberRepo) Create(ctx context.Context, groupID, userID string, isAdmin bool) (group.GroupMember, error) {
+	args := m.Called(ctx, groupID, userID, isAdmin)
 	return args.Get(0).(group.GroupMember), args.Error(1)
 }
-func (m *mockGroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID, role string) (group.GroupMember, error) {
-	args := m.Called(ctx, groupID, userID, role)
+func (m *mockGroupMemberRepo) UpdateRole(ctx context.Context, groupID, userID string, isAdmin bool) (group.GroupMember, error) {
+	args := m.Called(ctx, groupID, userID, isAdmin)
 	return args.Get(0).(group.GroupMember), args.Error(1)
 }
 func (m *mockGroupMemberRepo) Remove(ctx context.Context, groupID, userID string) error {
 	args := m.Called(ctx, groupID, userID)
 	return args.Error(0)
 }
-func (m *mockGroupMemberRepo) CountActive(ctx context.Context, groupID string) (int64, error) {
+func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64, error) {
 	args := m.Called(ctx, groupID)
 	return args.Get(0).(int64), args.Error(1)
 }
 
 func TestExpenseService_Create_InvalidSplitTotal(t *testing.T) {
-	mockExpense := new(mockExpenseRepo)
-	mockSplit := new(mockExpenseSplitRepo)
-	mockInstallment := new(mockInstallmentRepo)
-	mockCategory := new(mockCategoryRepo)
-	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
 	ctx := context.Background()
 
 	params := CreateExpenseWithSplitsParams{
-		Expense: CreateExpenseParams{TotalAmount: 100},
+		Expense: CreateExpenseParams{Amount: 100},
 		Splits:  []CreateExpenseSplitParams{{Amount: 30}, {Amount: 30}},
 	}
 
 	_, err := svc.Create(ctx, params)
 
 	assert.ErrorIs(t, err, ErrInvalidSplitTotal)
-	mockExpense.AssertNotCalled(t, "Create")
 }
 
 func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
-	mockExpense := new(mockExpenseRepo)
-	mockSplit := new(mockExpenseSplitRepo)
-	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
-	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo))
 	ctx := context.Background()
 
 	catID := "cat999"
@@ -229,8 +195,8 @@ func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
 
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			TotalAmount: 100,
-			CategoryID:  &catID,
+			Amount:     100,
+			CategoryID: catID,
 		},
 		Splits: []CreateExpenseSplitParams{},
 	}
@@ -238,22 +204,24 @@ func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
 	_, err := svc.Create(ctx, params)
 
 	assert.ErrorIs(t, err, ErrCategoryNotFound)
-	mockExpense.AssertNotCalled(t, "Create")
+	mockCategory.AssertExpectations(t)
 }
 
 func TestExpenseService_Create_Simple(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	mockSplit := new(mockExpenseSplitRepo)
-	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
-	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo))
 	ctx := context.Background()
 
+	mockCategory.On("GetByID", ctx, "cat1").Return(ExpenseCategory{ID: "cat1"}, nil)
+
 	params := CreateExpenseWithSplitsParams{
-		Expense: CreateExpenseParams{TotalAmount: 100},
+		Expense: CreateExpenseParams{
+			Amount:     100,
+			CategoryID: "cat1",
+		},
 	}
-	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", TotalAmount: 100}, nil)
+	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", Amount: 100}, nil)
 
 	expense, err := svc.Create(ctx, params)
 
@@ -264,44 +232,41 @@ func TestExpenseService_Create_Simple(t *testing.T) {
 
 func TestExpenseService_Create_Installment(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	mockSplit := new(mockExpenseSplitRepo)
-	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
-	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo))
 	ctx := context.Background()
 
-	count := int16(3)
-	dueDate := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	mockCategory.On("GetByID", ctx, "cat1").Return(ExpenseCategory{ID: "cat1"}, nil)
+
+	firstDue := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			TotalAmount:      300,
-			DueDate:          &dueDate,
-			IsInstallment:    true,
-			InstallmentCount: &count,
+			Amount:       300,
+			CategoryID:   "cat1",
+			Installments: 3,
+			FirstDueDate: &firstDue,
 		},
 	}
 
-	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", TotalAmount: 300}, nil)
-	mockInstallment.On("CreateMany", ctx, "1", mock.MatchedBy(func(inst []CreateInstallmentParams) bool {
-		if len(inst) != 3 {
-			return false
-		}
-		return inst[0].InstallmentNumber == 1 && inst[0].Amount == 100 &&
-			inst[2].InstallmentNumber == 3 && inst[2].Amount == 100
-	})).Return(int64(3), nil)
+	parentID := "parent-1"
+	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
+		return p.ParentExpenseID == nil && p.Installments == 3
+	})).Return(Expense{ID: parentID, Amount: 300, Installments: 3, FirstDueDate: &firstDue}, nil)
+
+	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
+		return p.ParentExpenseID != nil && *p.ParentExpenseID == parentID
+	})).Return(Expense{}, nil).Times(3)
 
 	expense, err := svc.Create(ctx, params)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "1", expense.ID)
+	assert.Equal(t, parentID, expense.ID)
 	mockExpense.AssertExpectations(t)
-	mockInstallment.AssertExpectations(t)
 }
 
 func TestExpenseService_GetByID_NotFound(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
 	ctx := context.Background()
 
 	mockExpense.On("GetByID", ctx, "999").Return(Expense{}, assert.AnError)
@@ -313,7 +278,7 @@ func TestExpenseService_GetByID_NotFound(t *testing.T) {
 
 func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
 	ctx := context.Background()
 
 	mockExpense.On("GetTotalByGroup", ctx, "g1").Return(0.0, nil)
@@ -326,7 +291,7 @@ func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 
 func TestExpenseService_MarkSplitAsPaid(t *testing.T) {
 	mockSplit := new(mockExpenseSplitRepo)
-	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockInstallmentRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockCategoryRepo), new(mockGroupMemberRepo))
 	ctx := context.Background()
 
 	mockSplit.On("MarkAsPaid", ctx, "s1").Return(nil)
@@ -339,37 +304,42 @@ func TestExpenseService_MarkSplitAsPaid(t *testing.T) {
 func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
 	mockSplit := new(mockExpenseSplitRepo)
-	mockInstallment := new(mockInstallmentRepo)
 	mockCategory := new(mockCategoryRepo)
-	mockMember := new(mockGroupMemberRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockInstallment, mockCategory, mockMember)
+	svc := NewExpenseService(mockExpense, mockSplit, mockCategory, new(mockGroupMemberRepo))
 	ctx := context.Background()
 
-	count := int16(2)
-	dueDate := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	mockCategory.On("GetByID", ctx, "cat1").Return(ExpenseCategory{ID: "cat1"}, nil)
+
+	firstDue := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
 	splits := []CreateExpenseSplitParams{
 		{UserID: "u1", Amount: 50},
 		{UserID: "u2", Amount: 50},
 	}
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			TotalAmount:      100,
-			DueDate:          &dueDate,
-			IsInstallment:    true,
-			InstallmentCount: &count,
+			Amount:       100,
+			CategoryID:   "cat1",
+			Installments: 2,
+			FirstDueDate: &firstDue,
 		},
 		Splits: splits,
 	}
 
-	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", TotalAmount: 100}, nil)
-	mockInstallment.On("CreateMany", ctx, "1", mock.Anything).Return(int64(2), nil)
-	mockSplit.On("CreateMany", ctx, "1", splits).Return(int64(2), nil)
+	parentID := "parent-1"
+	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
+		return p.ParentExpenseID == nil && p.Installments == 2
+	})).Return(Expense{ID: parentID, Amount: 100, Installments: 2, FirstDueDate: &firstDue}, nil)
+
+	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
+		return p.ParentExpenseID != nil && *p.ParentExpenseID == parentID
+	})).Return(Expense{}, nil).Times(2)
+
+	mockSplit.On("CreateMany", ctx, parentID, splits).Return(int64(2), nil)
 
 	expense, err := svc.Create(ctx, params)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "1", expense.ID)
+	assert.Equal(t, parentID, expense.ID)
 	mockExpense.AssertExpectations(t)
-	mockInstallment.AssertExpectations(t)
 	mockSplit.AssertExpectations(t)
 }

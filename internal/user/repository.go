@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"doheem-backend/internal/db"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type UserRepo struct {
@@ -39,11 +41,19 @@ func (r *UserRepo) List(ctx context.Context) ([]User, error) {
 }
 
 func (r *UserRepo) Create(ctx context.Context, params CreateUserParams) (User, error) {
+	birthDate := pgtype.Date{}
+	if params.BirthDate != nil {
+		birthDate = db.DateFromTime(*params.BirthDate)
+	}
 	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		Name:         params.Name,
 		Email:        params.Email,
 		PasswordHash: params.PasswordHash,
 		AvatarUrl:    db.TextFromStringPtr(params.AvatarURL),
+		Phone:        db.TextFromStringPtr(params.Phone),
+		Document:     db.TextFromStringPtr(params.Document),
+		BirthDate:    birthDate,
+		Cep:          db.TextFromStringPtr(params.Cep),
 	})
 	if err != nil {
 		return User{}, err
@@ -52,19 +62,19 @@ func (r *UserRepo) Create(ctx context.Context, params CreateUserParams) (User, e
 }
 
 func (r *UserRepo) Update(ctx context.Context, id string, params UpdateUserParams) (User, error) {
-	var name string
-	if params.Name != nil {
-		name = *params.Name
-	}
-	var email string
-	if params.Email != nil {
-		email = *params.Email
+	birthDate := pgtype.Date{}
+	if params.BirthDate != nil {
+		birthDate = db.DateFromTime(*params.BirthDate)
 	}
 	u, err := r.q.UpdateUser(ctx, db.UpdateUserParams{
 		ID:        db.UUIDFromString(id),
-		Name:      name,
-		Email:     email,
+		Name:      deptrStr(params.Name),
+		Email:     deptrStr(params.Email),
 		AvatarUrl: db.TextFromStringPtr(params.AvatarURL),
+		Phone:     db.TextFromStringPtr(params.Phone),
+		Document:  db.TextFromStringPtr(params.Document),
+		BirthDate: birthDate,
+		Cep:       db.TextFromStringPtr(params.Cep),
 	})
 	if err != nil {
 		return User{}, err
@@ -90,6 +100,11 @@ func toUser(u db.User) User {
 		Email:        u.Email,
 		PasswordHash: u.PasswordHash,
 		AvatarURL:    db.TextToStringPtr(u.AvatarUrl),
+		Phone:        db.TextToStringPtr(u.Phone),
+		Document:     db.TextToStringPtr(u.Document),
+		BirthDate:    db.DateToTimePtr(u.BirthDate),
+		Cep:          db.TextToStringPtr(u.Cep),
+		IsAdmin:      u.IsAdmin,
 		CreatedAt:    u.CreatedAt.Time,
 		UpdatedAt:    u.UpdatedAt.Time,
 	}
@@ -103,13 +118,9 @@ func toUsers(users []db.User) []User {
 	return result
 }
 
-func toRefreshToken(rt db.RefreshToken) RefreshToken {
-	return RefreshToken{
-		ID:        db.UUIDToString(rt.ID),
-		UserID:    db.UUIDToString(rt.UserID),
-		TokenHash: rt.TokenHash,
-		ExpiresAt: rt.ExpiresAt.Time,
-		RevokedAt: db.TimestamptzToTimePtr(rt.RevokedAt),
-		CreatedAt: rt.CreatedAt.Time,
+func deptrStr(s *string) string {
+	if s != nil {
+		return *s
 	}
+	return ""
 }

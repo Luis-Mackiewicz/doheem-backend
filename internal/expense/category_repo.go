@@ -22,18 +22,18 @@ func (r *ExpenseCategoryRepo) GetByID(ctx context.Context, id string) (ExpenseCa
 	return toCategory(ec), nil
 }
 
-func (r *ExpenseCategoryRepo) ListByGroup(ctx context.Context, groupID string) ([]ExpenseCategory, error) {
-	categories, err := r.q.ListExpenseCategoriesByGroup(ctx, db.UUIDFromString(groupID))
+func (r *ExpenseCategoryRepo) ListAll(ctx context.Context) ([]ExpenseCategory, error) {
+	categories, err := r.q.ListExpenseCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return toCategories(categories), nil
 }
 
-func (r *ExpenseCategoryRepo) Create(ctx context.Context, groupID, name string) (ExpenseCategory, error) {
+func (r *ExpenseCategoryRepo) Create(ctx context.Context, slug, label string) (ExpenseCategory, error) {
 	ec, err := r.q.CreateExpenseCategory(ctx, db.CreateExpenseCategoryParams{
-		GroupID: db.UUIDFromString(groupID),
-		Name:    name,
+		Slug:  slug,
+		Label: label,
 	})
 	if err != nil {
 		return ExpenseCategory{}, err
@@ -41,11 +41,11 @@ func (r *ExpenseCategoryRepo) Create(ctx context.Context, groupID, name string) 
 	return toCategory(ec), nil
 }
 
-func (r *ExpenseCategoryRepo) Update(ctx context.Context, id, groupID, name string) (ExpenseCategory, error) {
+func (r *ExpenseCategoryRepo) Update(ctx context.Context, id, slug, label string) (ExpenseCategory, error) {
 	ec, err := r.q.UpdateExpenseCategory(ctx, db.UpdateExpenseCategoryParams{
-		ID:      db.UUIDFromString(id),
-		GroupID: db.UUIDFromString(groupID),
-		Name:    name,
+		ID:    db.UUIDFromString(id),
+		Slug:  slug,
+		Label: label,
 	})
 	if err != nil {
 		return ExpenseCategory{}, err
@@ -53,18 +53,15 @@ func (r *ExpenseCategoryRepo) Update(ctx context.Context, id, groupID, name stri
 	return toCategory(ec), nil
 }
 
-func (r *ExpenseCategoryRepo) Delete(ctx context.Context, id, groupID string) error {
-	return r.q.DeleteExpenseCategory(ctx, db.DeleteExpenseCategoryParams{
-		ID:      db.UUIDFromString(id),
-		GroupID: db.UUIDFromString(groupID),
-	})
+func (r *ExpenseCategoryRepo) Delete(ctx context.Context, id string) error {
+	return r.q.DeleteExpenseCategory(ctx, db.UUIDFromString(id))
 }
 
 func toCategory(ec db.ExpenseCategory) ExpenseCategory {
 	return ExpenseCategory{
 		ID:        db.UUIDToString(ec.ID),
-		GroupID:   db.UUIDToString(ec.GroupID),
-		Name:      ec.Name,
+		Slug:      ec.Slug,
+		Label:     ec.Label,
 		CreatedAt: ec.CreatedAt.Time,
 	}
 }

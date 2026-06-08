@@ -24,37 +24,36 @@ func (q *Queries) CountUnreadNotifications(ctx context.Context, userID pgtype.UU
 }
 
 const createNotification = `-- name: CreateNotification :one
-INSERT INTO notifications (user_id, group_id, type, title, message)
+INSERT INTO notifications (user_id, type, title, message, related_id)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, group_id, type, title, message, is_read, read_at, created_at
+RETURNING id, user_id, type, title, message, is_read, related_id, created_at
 `
 
 type CreateNotificationParams struct {
-	UserID  pgtype.UUID
-	GroupID pgtype.UUID
-	Type    string
-	Title   string
-	Message string
+	UserID    pgtype.UUID
+	Type      string
+	Title     string
+	Message   string
+	RelatedID pgtype.UUID
 }
 
 func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error) {
 	row := q.db.QueryRow(ctx, createNotification,
 		arg.UserID,
-		arg.GroupID,
 		arg.Type,
 		arg.Title,
 		arg.Message,
+		arg.RelatedID,
 	)
 	var i Notification
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.GroupID,
 		&i.Type,
 		&i.Title,
 		&i.Message,
 		&i.IsRead,
-		&i.ReadAt,
+		&i.RelatedID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -76,7 +75,7 @@ func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotification
 }
 
 const getNotificationByID = `-- name: GetNotificationByID :one
-SELECT id, user_id, group_id, type, title, message, is_read, read_at, created_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, related_id, created_at FROM notifications
 WHERE id = $1
 `
 
@@ -86,19 +85,18 @@ func (q *Queries) GetNotificationByID(ctx context.Context, id pgtype.UUID) (Noti
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.GroupID,
 		&i.Type,
 		&i.Title,
 		&i.Message,
 		&i.IsRead,
-		&i.ReadAt,
+		&i.RelatedID,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listNotificationsByUser = `-- name: ListNotificationsByUser :many
-SELECT id, user_id, group_id, type, title, message, is_read, read_at, created_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, related_id, created_at FROM notifications
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -123,12 +121,11 @@ func (q *Queries) ListNotificationsByUser(ctx context.Context, arg ListNotificat
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.GroupID,
 			&i.Type,
 			&i.Title,
 			&i.Message,
 			&i.IsRead,
-			&i.ReadAt,
+			&i.RelatedID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -142,7 +139,7 @@ func (q *Queries) ListNotificationsByUser(ctx context.Context, arg ListNotificat
 }
 
 const listUnreadNotificationsByUser = `-- name: ListUnreadNotificationsByUser :many
-SELECT id, user_id, group_id, type, title, message, is_read, read_at, created_at FROM notifications
+SELECT id, user_id, type, title, message, is_read, related_id, created_at FROM notifications
 WHERE user_id = $1 AND is_read = false
 ORDER BY created_at DESC
 `
@@ -159,12 +156,11 @@ func (q *Queries) ListUnreadNotificationsByUser(ctx context.Context, userID pgty
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
-			&i.GroupID,
 			&i.Type,
 			&i.Title,
 			&i.Message,
 			&i.IsRead,
-			&i.ReadAt,
+			&i.RelatedID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -179,8 +175,7 @@ func (q *Queries) ListUnreadNotificationsByUser(ctx context.Context, userID pgty
 
 const markAllNotificationsAsRead = `-- name: MarkAllNotificationsAsRead :exec
 UPDATE notifications
-SET is_read = true,
-    read_at = NOW()
+SET is_read = true
 WHERE user_id = $1 AND is_read = false
 `
 
@@ -191,8 +186,7 @@ func (q *Queries) MarkAllNotificationsAsRead(ctx context.Context, userID pgtype.
 
 const markNotificationAsRead = `-- name: MarkNotificationAsRead :exec
 UPDATE notifications
-SET is_read = true,
-    read_at = NOW()
+SET is_read = true
 WHERE id = $1 AND user_id = $2
 `
 

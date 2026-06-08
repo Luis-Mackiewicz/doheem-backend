@@ -14,7 +14,7 @@ SELECT es.*, e.description AS expense_description
 FROM expense_splits es
 JOIN expenses e ON e.id = es.expense_id
 WHERE es.user_id = $1 AND e.group_id = $2
-ORDER BY e.expense_date DESC;
+ORDER BY e.competence_date DESC;
 
 -- name: CreateExpenseSplit :one
 INSERT INTO expense_splits (expense_id, user_id, amount)

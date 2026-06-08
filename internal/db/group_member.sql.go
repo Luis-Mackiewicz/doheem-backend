@@ -11,47 +11,45 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countActiveGroupMembers = `-- name: CountActiveGroupMembers :one
+const countGroupMembers = `-- name: CountGroupMembers :one
 SELECT COUNT(*) FROM group_members
-WHERE group_id = $1 AND is_active = true
+WHERE group_id = $1
 `
 
-func (q *Queries) CountActiveGroupMembers(ctx context.Context, groupID pgtype.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countActiveGroupMembers, groupID)
+func (q *Queries) CountGroupMembers(ctx context.Context, groupID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countGroupMembers, groupID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const createGroupMember = `-- name: CreateGroupMember :one
-INSERT INTO group_members (group_id, user_id, role)
+INSERT INTO group_members (group_id, user_id, is_admin)
 VALUES ($1, $2, $3)
-RETURNING id, group_id, user_id, role, joined_at, left_at, is_active
+RETURNING id, group_id, user_id, is_admin, joined_at
 `
 
 type CreateGroupMemberParams struct {
 	GroupID pgtype.UUID
 	UserID  pgtype.UUID
-	Role    string
+	IsAdmin bool
 }
 
 func (q *Queries) CreateGroupMember(ctx context.Context, arg CreateGroupMemberParams) (GroupMember, error) {
-	row := q.db.QueryRow(ctx, createGroupMember, arg.GroupID, arg.UserID, arg.Role)
+	row := q.db.QueryRow(ctx, createGroupMember, arg.GroupID, arg.UserID, arg.IsAdmin)
 	var i GroupMember
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
-		&i.Role,
+		&i.IsAdmin,
 		&i.JoinedAt,
-		&i.LeftAt,
-		&i.IsActive,
 	)
 	return i, err
 }
 
 const getGroupMember = `-- name: GetGroupMember :one
-SELECT id, group_id, user_id, role, joined_at, left_at, is_active FROM group_members
+SELECT id, group_id, user_id, is_admin, joined_at FROM group_members
 WHERE group_id = $1 AND user_id = $2
 `
 
@@ -67,16 +65,14 @@ func (q *Queries) GetGroupMember(ctx context.Context, arg GetGroupMemberParams) 
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
-		&i.Role,
+		&i.IsAdmin,
 		&i.JoinedAt,
-		&i.LeftAt,
-		&i.IsActive,
 	)
 	return i, err
 }
 
 const getGroupMemberByID = `-- name: GetGroupMemberByID :one
-SELECT id, group_id, user_id, role, joined_at, left_at, is_active FROM group_members
+SELECT id, group_id, user_id, is_admin, joined_at FROM group_members
 WHERE id = $1
 `
 
@@ -87,19 +83,17 @@ func (q *Queries) GetGroupMemberByID(ctx context.Context, id pgtype.UUID) (Group
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
-		&i.Role,
+		&i.IsAdmin,
 		&i.JoinedAt,
-		&i.LeftAt,
-		&i.IsActive,
 	)
 	return i, err
 }
 
 const listGroupMembers = `-- name: ListGroupMembers :many
-SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at, gm.left_at, gm.is_active, u.name, u.email, u.avatar_url
+SELECT gm.id, gm.group_id, gm.user_id, gm.is_admin, gm.joined_at, u.name, u.email, u.avatar_url
 FROM group_members gm
 JOIN users u ON u.id = gm.user_id
-WHERE gm.group_id = $1 AND gm.is_active = true
+WHERE gm.group_id = $1
 ORDER BY gm.joined_at
 `
 
@@ -107,10 +101,8 @@ type ListGroupMembersRow struct {
 	ID        pgtype.UUID
 	GroupID   pgtype.UUID
 	UserID    pgtype.UUID
-	Role      string
+	IsAdmin   bool
 	JoinedAt  pgtype.Timestamptz
-	LeftAt    pgtype.Timestamptz
-	IsActive  bool
 	Name      string
 	Email     string
 	AvatarUrl pgtype.Text
@@ -129,10 +121,8 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]
 			&i.ID,
 			&i.GroupID,
 			&i.UserID,
-			&i.Role,
+			&i.IsAdmin,
 			&i.JoinedAt,
-			&i.LeftAt,
-			&i.IsActive,
 			&i.Name,
 			&i.Email,
 			&i.AvatarUrl,
@@ -148,9 +138,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]
 }
 
 const removeGroupMember = `-- name: RemoveGroupMember :exec
-UPDATE group_members
-SET is_active = false,
-    left_at = NOW()
+DELETE FROM group_members
 WHERE group_id = $1 AND user_id = $2
 `
 
@@ -166,28 +154,26 @@ func (q *Queries) RemoveGroupMember(ctx context.Context, arg RemoveGroupMemberPa
 
 const updateGroupMemberRole = `-- name: UpdateGroupMemberRole :one
 UPDATE group_members
-SET role = $3
+SET is_admin = $3
 WHERE group_id = $1 AND user_id = $2
-RETURNING id, group_id, user_id, role, joined_at, left_at, is_active
+RETURNING id, group_id, user_id, is_admin, joined_at
 `
 
 type UpdateGroupMemberRoleParams struct {
 	GroupID pgtype.UUID
 	UserID  pgtype.UUID
-	Role    string
+	IsAdmin bool
 }
 
 func (q *Queries) UpdateGroupMemberRole(ctx context.Context, arg UpdateGroupMemberRoleParams) (GroupMember, error) {
-	row := q.db.QueryRow(ctx, updateGroupMemberRole, arg.GroupID, arg.UserID, arg.Role)
+	row := q.db.QueryRow(ctx, updateGroupMemberRole, arg.GroupID, arg.UserID, arg.IsAdmin)
 	var i GroupMember
 	err := row.Scan(
 		&i.ID,
 		&i.GroupID,
 		&i.UserID,
-		&i.Role,
+		&i.IsAdmin,
 		&i.JoinedAt,
-		&i.LeftAt,
-		&i.IsActive,
 	)
 	return i, err
 }

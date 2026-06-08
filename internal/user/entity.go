@@ -12,6 +12,11 @@ type User struct {
 	Email        string
 	PasswordHash string
 	AvatarURL    *string
+	Phone        *string
+	Document     *string
+	BirthDate    *time.Time
+	Cep          *string
+	IsAdmin      bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -21,12 +26,20 @@ type CreateUserParams struct {
 	Email        string
 	PasswordHash string
 	AvatarURL    *string
+	Phone        *string
+	Document     *string
+	BirthDate    *time.Time
+	Cep          *string
 }
 
 type UpdateUserParams struct {
 	Name      *string
 	Email     *string
 	AvatarURL *string
+	Phone     *string
+	Document  *string
+	BirthDate *time.Time
+	Cep       *string
 }
 
 type UserRepository interface {

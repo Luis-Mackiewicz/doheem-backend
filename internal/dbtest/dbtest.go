@@ -103,11 +103,10 @@ func CreateTestGroup(t *testing.T, q *db.Queries, owner user.User) group.Group {
 	repo := group.NewGroupRepo(q)
 	memberRepo := group.NewGroupMemberRepo(q)
 	g, err := repo.Create(context.Background(), group.CreateGroupParams{
-		Name:     "Test Group " + t.Name(),
-		Currency: "BRL",
+		Name: "Test Group " + t.Name(),
 	})
 	require.NoError(t, err)
-	_, err = memberRepo.Create(context.Background(), g.ID, owner.ID, "admin")
+	_, err = memberRepo.Create(context.Background(), g.ID, owner.ID, true)
 	require.NoError(t, err)
 	return g
 }

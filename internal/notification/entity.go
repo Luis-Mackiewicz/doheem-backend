@@ -9,21 +9,20 @@ import (
 type Notification struct {
 	ID        string
 	UserID    string
-	GroupID   *string
 	Type      string
 	Title     string
 	Message   string
 	IsRead    bool
-	ReadAt    *time.Time
+	RelatedID *string
 	CreatedAt time.Time
 }
 
 type CreateNotificationParams struct {
-	UserID  string
-	GroupID *string
-	Type    string
-	Title   string
-	Message string
+	UserID    string
+	Type      string
+	Title     string
+	Message   string
+	RelatedID *string
 }
 
 type NotificationRepository interface {

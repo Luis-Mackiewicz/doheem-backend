@@ -9,45 +9,53 @@ import (
 type Expense struct {
 	ID               string
 	GroupID          string
-	CreatedBy        string
 	Description      string
-	TotalAmount      float64
-	ExpenseDate      time.Time
-	DueDate          *time.Time
-	CategoryID       *string
-	SplitType        string
-	IsInstallment    bool
-	InstallmentCount *int16
+	Amount           float64
+	CategoryID       string
+	CompetenceDate   time.Time
+	DueDate          time.Time
+	PaidBy           string
+	SplitMode        string
+	Installments     int32
+	FirstDueDate     *time.Time
+	IsFixed          bool
+	ParentExpenseID  *string
+	InstallmentIndex *int32
+	InstallmentTotal *int32
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
 
 type CreateExpenseParams struct {
 	GroupID          string
-	CreatedBy        string
 	Description      string
-	TotalAmount      float64
-	ExpenseDate      time.Time
-	DueDate          *time.Time
-	CategoryID       *string
-	SplitType        string
-	IsInstallment    bool
-	InstallmentCount *int16
+	Amount           float64
+	CategoryID       string
+	CompetenceDate   time.Time
+	DueDate          time.Time
+	PaidBy           string
+	SplitMode        string
+	Installments     int32
+	FirstDueDate     *time.Time
+	IsFixed          bool
+	ParentExpenseID  *string
+	InstallmentIndex *int32
+	InstallmentTotal *int32
 }
 
 type UpdateExpenseParams struct {
-	Description *string
-	TotalAmount *float64
-	ExpenseDate *time.Time
-	DueDate     *time.Time
-	CategoryID  *string
-	SplitType   *string
+	Description    *string
+	Amount         *float64
+	CompetenceDate *time.Time
+	DueDate        *time.Time
+	CategoryID     *string
+	SplitMode      *string
 }
 
 type ExpenseCategory struct {
 	ID        string
-	GroupID   string
-	Name      string
+	Slug      string
+	Label     string
 	CreatedAt time.Time
 }
 
@@ -67,17 +75,6 @@ type ExpenseSplitWithUser struct {
 	UserEmail string
 }
 
-type Installment struct {
-	ID                string
-	ExpenseID         string
-	InstallmentNumber int16
-	Amount            float64
-	DueDate           time.Time
-	IsPaid            bool
-	PaidAt            *time.Time
-	CreatedAt         time.Time
-}
-
 type UserBalance struct {
 	TotalOwed float64
 	TotalPaid float64
@@ -88,18 +85,20 @@ type ExpenseRepository interface {
 	ListByGroup(ctx context.Context, groupID string) ([]Expense, error)
 	ListByUser(ctx context.Context, userID string) ([]Expense, error)
 	ListByCategory(ctx context.Context, categoryID string) ([]Expense, error)
+	ListByParent(ctx context.Context, parentID string) ([]Expense, error)
 	Create(ctx context.Context, params CreateExpenseParams) (Expense, error)
 	Update(ctx context.Context, id string, params UpdateExpenseParams) (Expense, error)
 	Delete(ctx context.Context, id string) error
+	DeleteByParent(ctx context.Context, parentID string) error
 	GetTotalByGroup(ctx context.Context, groupID string) (float64, error)
 }
 
 type ExpenseCategoryRepository interface {
 	GetByID(ctx context.Context, id string) (ExpenseCategory, error)
-	ListByGroup(ctx context.Context, groupID string) ([]ExpenseCategory, error)
-	Create(ctx context.Context, groupID, name string) (ExpenseCategory, error)
-	Update(ctx context.Context, id, groupID, name string) (ExpenseCategory, error)
-	Delete(ctx context.Context, id, groupID string) error
+	ListAll(ctx context.Context) ([]ExpenseCategory, error)
+	Create(ctx context.Context, slug, label string) (ExpenseCategory, error)
+	Update(ctx context.Context, id, slug, label string) (ExpenseCategory, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type ExpenseSplitRepository interface {
@@ -116,21 +115,6 @@ type ExpenseSplitRepository interface {
 type CreateExpenseSplitParams struct {
 	UserID string
 	Amount float64
-}
-
-type InstallmentRepository interface {
-	GetByID(ctx context.Context, id string) (Installment, error)
-	ListByExpense(ctx context.Context, expenseID string) ([]Installment, error)
-	Create(ctx context.Context, params CreateInstallmentParams) (Installment, error)
-	CreateMany(ctx context.Context, expenseID string, installments []CreateInstallmentParams) (int64, error)
-	MarkAsPaid(ctx context.Context, id string) error
-	DeleteByExpense(ctx context.Context, expenseID string) error
-}
-
-type CreateInstallmentParams struct {
-	InstallmentNumber int16
-	Amount            float64
-	DueDate           time.Time
 }
 
 var (

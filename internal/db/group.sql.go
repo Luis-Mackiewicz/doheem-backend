@@ -11,62 +11,33 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const activateGroup = `-- name: ActivateGroup :exec
-UPDATE groups
-SET is_active = true,
-    inactive_since = NULL,
-    updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) ActivateGroup(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, activateGroup, id)
-	return err
-}
-
 const createGroup = `-- name: CreateGroup :one
-INSERT INTO groups (name, currency)
-VALUES ($1, $2)
-RETURNING id, name, currency, is_active, inactive_since, created_at, updated_at, deleted_at
+INSERT INTO groups (name, invite_token)
+VALUES ($1, gen_random_uuid()::text)
+RETURNING id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at
 `
 
-type CreateGroupParams struct {
-	Name     string
-	Currency string
-}
-
-func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Group, error) {
-	row := q.db.QueryRow(ctx, createGroup, arg.Name, arg.Currency)
+func (q *Queries) CreateGroup(ctx context.Context, name string) (Group, error) {
+	row := q.db.QueryRow(ctx, createGroup, name)
 	var i Group
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Currency,
-		&i.IsActive,
-		&i.InactiveSince,
+		&i.Description,
+		&i.MonthlyFee,
+		&i.Cnpj,
+		&i.Cep,
+		&i.PhotoUrl,
+		&i.InviteToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
 
-const deactivateGroup = `-- name: DeactivateGroup :exec
-UPDATE groups
-SET is_active = false,
-    inactive_since = NOW(),
-    updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) DeactivateGroup(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deactivateGroup, id)
-	return err
-}
-
 const getGroupByID = `-- name: GetGroupByID :one
-SELECT id, name, currency, is_active, inactive_since, created_at, updated_at, deleted_at FROM groups
-WHERE id = $1 AND deleted_at IS NULL
+SELECT id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at FROM groups
+WHERE id = $1
 `
 
 func (q *Queries) GetGroupByID(ctx context.Context, id pgtype.UUID) (Group, error) {
@@ -75,20 +46,22 @@ func (q *Queries) GetGroupByID(ctx context.Context, id pgtype.UUID) (Group, erro
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Currency,
-		&i.IsActive,
-		&i.InactiveSince,
+		&i.Description,
+		&i.MonthlyFee,
+		&i.Cnpj,
+		&i.Cep,
+		&i.PhotoUrl,
+		&i.InviteToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const listGroupsByUserID = `-- name: ListGroupsByUserID :many
-SELECT g.id, g.name, g.currency, g.is_active, g.inactive_since, g.created_at, g.updated_at, g.deleted_at FROM groups g
+SELECT g.id, g.name, g.description, g.monthly_fee, g.cnpj, g.cep, g.photo_url, g.invite_token, g.created_at, g.updated_at FROM groups g
 JOIN group_members gm ON gm.group_id = g.id
-WHERE gm.user_id = $1 AND g.deleted_at IS NULL AND gm.is_active = true
+WHERE gm.user_id = $1
 ORDER BY g.name
 `
 
@@ -104,12 +77,14 @@ func (q *Queries) ListGroupsByUserID(ctx context.Context, userID pgtype.UUID) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Currency,
-			&i.IsActive,
-			&i.InactiveSince,
+			&i.Description,
+			&i.MonthlyFee,
+			&i.Cnpj,
+			&i.Cep,
+			&i.PhotoUrl,
+			&i.InviteToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -121,45 +96,82 @@ func (q *Queries) ListGroupsByUserID(ctx context.Context, userID pgtype.UUID) ([
 	return items, nil
 }
 
-const softDeleteGroup = `-- name: SoftDeleteGroup :exec
+const regenerateInviteToken = `-- name: RegenerateInviteToken :one
 UPDATE groups
-SET deleted_at = NOW(),
+SET invite_token = $2,
     updated_at = NOW()
 WHERE id = $1
+RETURNING id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at
 `
 
-func (q *Queries) SoftDeleteGroup(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteGroup, id)
-	return err
+type RegenerateInviteTokenParams struct {
+	ID          pgtype.UUID
+	InviteToken pgtype.Text
+}
+
+func (q *Queries) RegenerateInviteToken(ctx context.Context, arg RegenerateInviteTokenParams) (Group, error) {
+	row := q.db.QueryRow(ctx, regenerateInviteToken, arg.ID, arg.InviteToken)
+	var i Group
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.MonthlyFee,
+		&i.Cnpj,
+		&i.Cep,
+		&i.PhotoUrl,
+		&i.InviteToken,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateGroup = `-- name: UpdateGroup :one
 UPDATE groups
 SET name = COALESCE($2, name),
-    currency = COALESCE($3, currency),
+    description = COALESCE($3, description),
+    monthly_fee = COALESCE($4, monthly_fee),
+    cnpj = COALESCE($5, cnpj),
+    cep = COALESCE($6, cep),
+    photo_url = COALESCE($7, photo_url),
     updated_at = NOW()
-WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, name, currency, is_active, inactive_since, created_at, updated_at, deleted_at
+WHERE id = $1
+RETURNING id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at
 `
 
 type UpdateGroupParams struct {
-	ID       pgtype.UUID
-	Name     string
-	Currency string
+	ID          pgtype.UUID
+	Name        string
+	Description string
+	MonthlyFee  pgtype.Numeric
+	Cnpj        string
+	Cep         string
+	PhotoUrl    pgtype.Text
 }
 
 func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group, error) {
-	row := q.db.QueryRow(ctx, updateGroup, arg.ID, arg.Name, arg.Currency)
+	row := q.db.QueryRow(ctx, updateGroup,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.MonthlyFee,
+		arg.Cnpj,
+		arg.Cep,
+		arg.PhotoUrl,
+	)
 	var i Group
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Currency,
-		&i.IsActive,
-		&i.InactiveSince,
+		&i.Description,
+		&i.MonthlyFee,
+		&i.Cnpj,
+		&i.Cep,
+		&i.PhotoUrl,
+		&i.InviteToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.DeletedAt,
 	)
 	return i, err
 }

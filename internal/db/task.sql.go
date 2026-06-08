@@ -12,21 +12,18 @@ import (
 )
 
 const createTask = `-- name: CreateTask :one
-INSERT INTO tasks (group_id, title, description, assigned_to, category, is_recurring, recurring_period, recurring_ended_at, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, group_id, title, description, assigned_to, category, is_recurring, recurring_period, recurring_ended_at, created_by, created_at, updated_at
+INSERT INTO tasks (group_id, title, description, assigned_to, created_by, due_date)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, group_id, title, description, assigned_to, created_by, status, position, due_date, created_at, updated_at
 `
 
 type CreateTaskParams struct {
-	GroupID          pgtype.UUID
-	Title            string
-	Description      pgtype.Text
-	AssignedTo       pgtype.UUID
-	Category         pgtype.Text
-	IsRecurring      bool
-	RecurringPeriod  pgtype.Text
-	RecurringEndedAt pgtype.Timestamptz
-	CreatedBy        pgtype.UUID
+	GroupID     pgtype.UUID
+	Title       string
+	Description string
+	AssignedTo  pgtype.UUID
+	CreatedBy   pgtype.UUID
+	DueDate     pgtype.Date
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error) {
@@ -35,11 +32,8 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 		arg.Title,
 		arg.Description,
 		arg.AssignedTo,
-		arg.Category,
-		arg.IsRecurring,
-		arg.RecurringPeriod,
-		arg.RecurringEndedAt,
 		arg.CreatedBy,
+		arg.DueDate,
 	)
 	var i Task
 	err := row.Scan(
@@ -48,11 +42,10 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Task, e
 		&i.Title,
 		&i.Description,
 		&i.AssignedTo,
-		&i.Category,
-		&i.IsRecurring,
-		&i.RecurringPeriod,
-		&i.RecurringEndedAt,
 		&i.CreatedBy,
+		&i.Status,
+		&i.Position,
+		&i.DueDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -70,7 +63,7 @@ func (q *Queries) DeleteTask(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getTaskByID = `-- name: GetTaskByID :one
-SELECT id, group_id, title, description, assigned_to, category, is_recurring, recurring_period, recurring_ended_at, created_by, created_at, updated_at FROM tasks
+SELECT id, group_id, title, description, assigned_to, created_by, status, position, due_date, created_at, updated_at FROM tasks
 WHERE id = $1
 `
 
@@ -83,11 +76,10 @@ func (q *Queries) GetTaskByID(ctx context.Context, id pgtype.UUID) (Task, error)
 		&i.Title,
 		&i.Description,
 		&i.AssignedTo,
-		&i.Category,
-		&i.IsRecurring,
-		&i.RecurringPeriod,
-		&i.RecurringEndedAt,
 		&i.CreatedBy,
+		&i.Status,
+		&i.Position,
+		&i.DueDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -95,9 +87,9 @@ func (q *Queries) GetTaskByID(ctx context.Context, id pgtype.UUID) (Task, error)
 }
 
 const listTasksByAssignee = `-- name: ListTasksByAssignee :many
-SELECT id, group_id, title, description, assigned_to, category, is_recurring, recurring_period, recurring_ended_at, created_by, created_at, updated_at FROM tasks
+SELECT id, group_id, title, description, assigned_to, created_by, status, position, due_date, created_at, updated_at FROM tasks
 WHERE assigned_to = $1 AND group_id = $2
-ORDER BY created_at DESC
+ORDER BY position, created_at DESC
 `
 
 type ListTasksByAssigneeParams struct {
@@ -120,11 +112,10 @@ func (q *Queries) ListTasksByAssignee(ctx context.Context, arg ListTasksByAssign
 			&i.Title,
 			&i.Description,
 			&i.AssignedTo,
-			&i.Category,
-			&i.IsRecurring,
-			&i.RecurringPeriod,
-			&i.RecurringEndedAt,
 			&i.CreatedBy,
+			&i.Status,
+			&i.Position,
+			&i.DueDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -139,9 +130,9 @@ func (q *Queries) ListTasksByAssignee(ctx context.Context, arg ListTasksByAssign
 }
 
 const listTasksByGroup = `-- name: ListTasksByGroup :many
-SELECT id, group_id, title, description, assigned_to, category, is_recurring, recurring_period, recurring_ended_at, created_by, created_at, updated_at FROM tasks
+SELECT id, group_id, title, description, assigned_to, created_by, status, position, due_date, created_at, updated_at FROM tasks
 WHERE group_id = $1
-ORDER BY created_at DESC
+ORDER BY position, created_at DESC
 `
 
 func (q *Queries) ListTasksByGroup(ctx context.Context, groupID pgtype.UUID) ([]Task, error) {
@@ -159,11 +150,10 @@ func (q *Queries) ListTasksByGroup(ctx context.Context, groupID pgtype.UUID) ([]
 			&i.Title,
 			&i.Description,
 			&i.AssignedTo,
-			&i.Category,
-			&i.IsRecurring,
-			&i.RecurringPeriod,
-			&i.RecurringEndedAt,
 			&i.CreatedBy,
+			&i.Status,
+			&i.Position,
+			&i.DueDate,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -180,26 +170,24 @@ func (q *Queries) ListTasksByGroup(ctx context.Context, groupID pgtype.UUID) ([]
 const updateTask = `-- name: UpdateTask :one
 UPDATE tasks
 SET title = COALESCE($2, title),
-    description = $3,
-    assigned_to = $4,
-    category = $5,
-    is_recurring = COALESCE($6, is_recurring),
-    recurring_period = $7,
-    recurring_ended_at = $8,
+    description = COALESCE($3, description),
+    assigned_to = COALESCE($4, assigned_to),
+    status = COALESCE($5, status),
+    position = COALESCE($6, position),
+    due_date = COALESCE($7, due_date),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, group_id, title, description, assigned_to, category, is_recurring, recurring_period, recurring_ended_at, created_by, created_at, updated_at
+RETURNING id, group_id, title, description, assigned_to, created_by, status, position, due_date, created_at, updated_at
 `
 
 type UpdateTaskParams struct {
-	ID               pgtype.UUID
-	Title            string
-	Description      pgtype.Text
-	AssignedTo       pgtype.UUID
-	Category         pgtype.Text
-	IsRecurring      bool
-	RecurringPeriod  pgtype.Text
-	RecurringEndedAt pgtype.Timestamptz
+	ID          pgtype.UUID
+	Title       string
+	Description string
+	AssignedTo  pgtype.UUID
+	Status      string
+	Position    int32
+	DueDate     pgtype.Date
 }
 
 func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, error) {
@@ -208,10 +196,9 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 		arg.Title,
 		arg.Description,
 		arg.AssignedTo,
-		arg.Category,
-		arg.IsRecurring,
-		arg.RecurringPeriod,
-		arg.RecurringEndedAt,
+		arg.Status,
+		arg.Position,
+		arg.DueDate,
 	)
 	var i Task
 	err := row.Scan(
@@ -220,11 +207,10 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (Task, e
 		&i.Title,
 		&i.Description,
 		&i.AssignedTo,
-		&i.Category,
-		&i.IsRecurring,
-		&i.RecurringPeriod,
-		&i.RecurringEndedAt,
 		&i.CreatedBy,
+		&i.Status,
+		&i.Position,
+		&i.DueDate,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

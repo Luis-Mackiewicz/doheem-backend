@@ -2,22 +2,22 @@
 SELECT * FROM expense_categories
 WHERE id = $1;
 
--- name: ListExpenseCategoriesByGroup :many
+-- name: ListExpenseCategories :many
 SELECT * FROM expense_categories
-WHERE group_id = $1
-ORDER BY name;
+ORDER BY label;
 
 -- name: CreateExpenseCategory :one
-INSERT INTO expense_categories (group_id, name)
+INSERT INTO expense_categories (slug, label)
 VALUES ($1, $2)
 RETURNING *;
 
 -- name: UpdateExpenseCategory :one
 UPDATE expense_categories
-SET name = $3
-WHERE id = $1 AND group_id = $2
+SET slug = $2,
+    label = $3
+WHERE id = $1
 RETURNING *;
 
 -- name: DeleteExpenseCategory :exec
 DELETE FROM expense_categories
-WHERE id = $1 AND group_id = $2;
+WHERE id = $1;

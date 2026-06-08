@@ -44,11 +44,11 @@ func (r *NotificationRepo) ListUnreadByUser(ctx context.Context, userID string) 
 
 func (r *NotificationRepo) Create(ctx context.Context, params CreateNotificationParams) (Notification, error) {
 	n, err := r.q.CreateNotification(ctx, db.CreateNotificationParams{
-		UserID:  db.UUIDFromString(params.UserID),
-		GroupID: db.UUIDFromStringPtr(params.GroupID),
-		Type:    params.Type,
-		Title:   params.Title,
-		Message: params.Message,
+		UserID:    db.UUIDFromString(params.UserID),
+		Type:      params.Type,
+		Title:     params.Title,
+		Message:   params.Message,
+		RelatedID: db.UUIDFromStringPtr(params.RelatedID),
 	})
 	if err != nil {
 		return Notification{}, err
@@ -82,12 +82,11 @@ func toNotification(n db.Notification) Notification {
 	return Notification{
 		ID:        db.UUIDToString(n.ID),
 		UserID:    db.UUIDToString(n.UserID),
-		GroupID:   db.UUIDToStringPtr(n.GroupID),
 		Type:      n.Type,
 		Title:     n.Title,
 		Message:   n.Message,
 		IsRead:    n.IsRead,
-		ReadAt:    db.TimestamptzToTimePtr(n.ReadAt),
+		RelatedID: db.UUIDToStringPtr(n.RelatedID),
 		CreatedAt: n.CreatedAt.Time,
 	}
 }

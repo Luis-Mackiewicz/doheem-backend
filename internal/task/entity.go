@@ -7,40 +7,35 @@ import (
 )
 
 type Task struct {
-	ID               string
-	GroupID          string
-	Title            string
-	Description      *string
-	AssignedTo       *string
-	Category         *string
-	IsRecurring      bool
-	RecurringPeriod  *string
-	RecurringEndedAt *time.Time
-	CreatedBy        string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID          string
+	GroupID     string
+	Title       string
+	Description string
+	AssignedTo  string
+	CreatedBy   string
+	Status      string
+	Position    int32
+	DueDate     time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type CreateTaskParams struct {
-	GroupID          string
-	Title            string
-	Description      *string
-	AssignedTo       *string
-	Category         *string
-	IsRecurring      bool
-	RecurringPeriod  *string
-	RecurringEndedAt *time.Time
-	CreatedBy        string
+	GroupID     string
+	Title       string
+	Description string
+	AssignedTo  string
+	CreatedBy   string
+	DueDate     time.Time
 }
 
 type UpdateTaskParams struct {
-	Title            *string
-	Description      *string
-	AssignedTo       *string
-	Category         *string
-	IsRecurring      *bool
-	RecurringPeriod  *string
-	RecurringEndedAt *time.Time
+	Title       *string
+	Description *string
+	AssignedTo  *string
+	Status      *string
+	Position    *int32
+	DueDate     *time.Time
 }
 
 type TaskOccurrence struct {
