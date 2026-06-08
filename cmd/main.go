@@ -9,11 +9,17 @@ import (
 	"syscall"
 	"time"
 
-	adapterhttp "doheem-backend/internal/adapter/http"
-	"doheem-backend/internal/adapter/repository"
-	"doheem-backend/internal/adapter/repository/db"
 	"doheem-backend/internal/config"
-	"doheem-backend/internal/domain"
+	"doheem-backend/internal/db"
+	"doheem-backend/internal/expense"
+	"doheem-backend/internal/group"
+	adapterhttp "doheem-backend/internal/http"
+	"doheem-backend/internal/invite"
+	"doheem-backend/internal/notification"
+	"doheem-backend/internal/payment"
+	"doheem-backend/internal/split_tag"
+	"doheem-backend/internal/task"
+	"doheem-backend/internal/user"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -60,33 +66,33 @@ func main() {
 	defer rdb.Close()
 	slog.Info("connected to redis")
 
-	queries := db.New(pool)
+	q := db.New(pool)
 
-	userRepo := repository.NewUserRepo(queries)
-	groupRepo := repository.NewGroupRepo(queries)
-	groupMemberRepo := repository.NewGroupMemberRepo(queries)
-	expenseRepo := repository.NewExpenseRepo(queries)
-	expenseSplitRepo := repository.NewExpenseSplitRepo(queries)
-	installmentRepo := repository.NewInstallmentRepo(queries)
-	categoryRepo := repository.NewExpenseCategoryRepo(queries)
-	paymentRepo := repository.NewPaymentRepo(queries)
-	paymentAttachmentRepo := repository.NewPaymentAttachmentRepo(queries)
-	taskRepo := repository.NewTaskRepo(queries)
-	taskOccurrenceRepo := repository.NewTaskOccurrenceRepo(queries)
-	inviteRepo := repository.NewInviteRepo(queries)
-	notificationRepo := repository.NewNotificationRepo(queries)
-	splitTagRepo := repository.NewSplitTagRepo(queries)
-	refreshTokenRepo := repository.NewRefreshTokenRepo(queries)
+	userRepo := user.NewUserRepo(q)
+	groupRepo := group.NewGroupRepo(q)
+	groupMemberRepo := group.NewGroupMemberRepo(q)
+	expenseRepo := expense.NewExpenseRepo(q)
+	expenseSplitRepo := expense.NewExpenseSplitRepo(q)
+	installmentRepo := expense.NewInstallmentRepo(q)
+	categoryRepo := expense.NewExpenseCategoryRepo(q)
+	paymentRepo := payment.NewPaymentRepo(q)
+	paymentAttachmentRepo := payment.NewPaymentAttachmentRepo(q)
+	taskRepo := task.NewTaskRepo(q)
+	taskOccurrenceRepo := task.NewTaskOccurrenceRepo(q)
+	inviteRepo := invite.NewInviteRepo(q)
+	notificationRepo := notification.NewNotificationRepo(q)
+	splitTagRepo := split_tag.NewSplitTagRepo(q)
+	refreshTokenRepo := user.NewRefreshTokenRepo(q)
 
-	userSvc := domain.NewUserService(userRepo, refreshTokenRepo)
-	groupSvc := domain.NewGroupService(groupRepo, groupMemberRepo)
-	notificationSvc := domain.NewNotificationService(notificationRepo)
+	userSvc := user.NewUserService(userRepo, refreshTokenRepo)
+	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo)
+	notificationSvc := notification.NewNotificationService(notificationRepo)
 
-	expenseSvc := domain.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo)
-	paymentSvc := domain.NewPaymentService(paymentRepo, paymentAttachmentRepo)
-	taskSvc := domain.NewTaskService(taskRepo, taskOccurrenceRepo)
-	inviteSvc := domain.NewInviteService(inviteRepo, groupMemberRepo, groupRepo)
-	splitTagSvc := domain.NewSplitTagService(splitTagRepo)
+	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo)
+	paymentSvc := payment.NewPaymentService(paymentRepo, paymentAttachmentRepo)
+	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo)
+	inviteSvc := invite.NewInviteService(inviteRepo, groupMemberRepo, groupRepo)
+	splitTagSvc := split_tag.NewSplitTagService(splitTagRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 
