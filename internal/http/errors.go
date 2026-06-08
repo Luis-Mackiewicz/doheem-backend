@@ -43,6 +43,8 @@ func toHTTPStatus(err error) int {
 
 	case
 		errors.Is(err, user.ErrEmailAlreadyExists),
+		errors.Is(err, user.ErrDocumentAlreadyExists),
+		errors.Is(err, user.ErrPhoneAlreadyExists),
 		errors.Is(err, group.ErrMemberAlreadyExists):
 		return http.StatusConflict
 

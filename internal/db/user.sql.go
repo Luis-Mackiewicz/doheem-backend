@@ -117,6 +117,56 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	return i, err
 }
 
+const getUserByDocument = `-- name: GetUserByDocument :one
+SELECT id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at FROM users
+WHERE document = $1
+`
+
+func (q *Queries) GetUserByDocument(ctx context.Context, document pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByDocument, document)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.PasswordHash,
+		&i.AvatarUrl,
+		&i.Phone,
+		&i.Document,
+		&i.BirthDate,
+		&i.Cep,
+		&i.IsAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByPhone = `-- name: GetUserByPhone :one
+SELECT id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at FROM users
+WHERE phone = $1
+`
+
+func (q *Queries) GetUserByPhone(ctx context.Context, phone pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByPhone, phone)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.PasswordHash,
+		&i.AvatarUrl,
+		&i.Phone,
+		&i.Document,
+		&i.BirthDate,
+		&i.Cep,
+		&i.IsAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT id, name, email, password_hash, avatar_url, phone, document, birth_date, cep, is_admin, created_at, updated_at FROM users
 ORDER BY created_at DESC

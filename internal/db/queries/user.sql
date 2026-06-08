@@ -6,6 +6,14 @@ WHERE id = $1;
 SELECT * FROM users
 WHERE email = $1;
 
+-- name: GetUserByDocument :one
+SELECT * FROM users
+WHERE document = $1;
+
+-- name: GetUserByPhone :one
+SELECT * FROM users
+WHERE phone = $1;
+
 -- name: ListUsers :many
 SELECT * FROM users
 ORDER BY created_at DESC;

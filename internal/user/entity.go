@@ -45,6 +45,8 @@ type UpdateUserParams struct {
 type UserRepository interface {
 	GetByID(ctx context.Context, id string) (User, error)
 	GetByEmail(ctx context.Context, email string) (User, error)
+	GetByDocument(ctx context.Context, document string) (User, error)
+	GetByPhone(ctx context.Context, phone string) (User, error)
 	List(ctx context.Context) ([]User, error)
 	Create(ctx context.Context, params CreateUserParams) (User, error)
 	Update(ctx context.Context, id string, params UpdateUserParams) (User, error)
@@ -56,6 +58,8 @@ var (
 	ErrUserNotFound           = errors.New("user not found")
 	ErrInvalidCredentials     = errors.New("invalid credentials")
 	ErrEmailAlreadyExists     = errors.New("email already exists")
+	ErrDocumentAlreadyExists  = errors.New("document already exists")
+	ErrPhoneAlreadyExists     = errors.New("phone already exists")
 	ErrRefreshTokenNotFound   = errors.New("refresh token not found")
 	ErrRefreshTokenExpired    = errors.New("refresh token has expired")
 	ErrRefreshTokenRevoked    = errors.New("refresh token has been revoked")

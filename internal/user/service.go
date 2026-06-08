@@ -20,9 +20,23 @@ func NewUserService(repo UserRepository, refreshRepo RefreshTokenRepository) *Us
 }
 
 func (s *UserService) Register(ctx context.Context, params CreateUserParams) (User, error) {
-	existing, err := s.repo.GetByEmail(ctx, params.Email)
-	if err == nil && existing.ID != "" {
-		return User{}, ErrEmailAlreadyExists
+	if params.Email != "" {
+		existing, err := s.repo.GetByEmail(ctx, params.Email)
+		if err == nil && existing.ID != "" {
+			return User{}, ErrEmailAlreadyExists
+		}
+	}
+	if params.Document != nil && *params.Document != "" {
+		existing, err := s.repo.GetByDocument(ctx, *params.Document)
+		if err == nil && existing.ID != "" {
+			return User{}, ErrDocumentAlreadyExists
+		}
+	}
+	if params.Phone != nil && *params.Phone != "" {
+		existing, err := s.repo.GetByPhone(ctx, *params.Phone)
+		if err == nil && existing.ID != "" {
+			return User{}, ErrPhoneAlreadyExists
+		}
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(params.PasswordHash), bcrypt.DefaultCost)
@@ -72,6 +86,18 @@ func (s *UserService) Update(ctx context.Context, id string, params UpdateUserPa
 		existing, err := s.repo.GetByEmail(ctx, *params.Email)
 		if err == nil && existing.ID != "" && existing.ID != id {
 			return User{}, ErrEmailAlreadyExists
+		}
+	}
+	if params.Document != nil && *params.Document != "" {
+		existing, err := s.repo.GetByDocument(ctx, *params.Document)
+		if err == nil && existing.ID != "" && existing.ID != id {
+			return User{}, ErrDocumentAlreadyExists
+		}
+	}
+	if params.Phone != nil && *params.Phone != "" {
+		existing, err := s.repo.GetByPhone(ctx, *params.Phone)
+		if err == nil && existing.ID != "" && existing.ID != id {
+			return User{}, ErrPhoneAlreadyExists
 		}
 	}
 	return s.repo.Update(ctx, id, params)

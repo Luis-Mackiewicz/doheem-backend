@@ -32,6 +32,22 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (User, error) {
 	return toUser(u), nil
 }
 
+func (r *UserRepo) GetByDocument(ctx context.Context, document string) (User, error) {
+	u, err := r.q.GetUserByDocument(ctx, db.TextFromStringPtr(&document))
+	if err != nil {
+		return User{}, err
+	}
+	return toUser(u), nil
+}
+
+func (r *UserRepo) GetByPhone(ctx context.Context, phone string) (User, error) {
+	u, err := r.q.GetUserByPhone(ctx, db.TextFromStringPtr(&phone))
+	if err != nil {
+		return User{}, err
+	}
+	return toUser(u), nil
+}
+
 func (r *UserRepo) List(ctx context.Context) ([]User, error) {
 	users, err := r.q.ListUsers(ctx)
 	if err != nil {
