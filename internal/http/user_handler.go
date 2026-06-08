@@ -23,7 +23,7 @@ func NewUserHandler(svc *user.UserService, jwt *JWTService) *UserHandler {
 // @Tags Users
 // @Accept json
 // @Produce json
-// @Param request body object{name=string,email=string,password=string} true "Registration details"
+// @Param request body object{name=string,email=string,password=string,phone=string,document=string,birth_date=string,cep=string} true "Registration details"
 // @Success 201 {object} authResponse
 // @Failure 400 {object} map[string]any "Validation error"
 // @Failure 409 {object} map[string]any "Email already in use"
@@ -31,19 +31,32 @@ func NewUserHandler(svc *user.UserService, jwt *JWTService) *UserHandler {
 // @Router /api/auth/register [post]
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name      string  `json:"name"      validate:"required"`
-		Email     string  `json:"email"     validate:"required,email"`
-		Password  string  `json:"password"  validate:"required,min=6"`
+		Name      string  `json:"name"       validate:"required"`
+		Email     string  `json:"email"      validate:"required,email"`
+		Password  string  `json:"password"   validate:"required,min=6"`
+		Phone     string  `json:"phone"      validate:"required"`
+		Document  string  `json:"document"   validate:"required"`
+		BirthDate string  `json:"birth_date" validate:"required"`
+		Cep       string  `json:"cep"        validate:"required"`
 		AvatarURL *string `json:"avatar_url,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
+	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid birth_date format, use YYYY-MM-DD")
+		return
+	}
 	created, err := h.svc.Register(r.Context(), user.CreateUserParams{
 		Name:         req.Name,
 		Email:        req.Email,
 		PasswordHash: req.Password,
+		Phone:        &req.Phone,
+		Document:     &req.Document,
+		BirthDate:    &birthDate,
+		Cep:          &req.Cep,
 		AvatarURL:    req.AvatarURL,
 	})
 	if err != nil {
@@ -307,6 +320,10 @@ type userResponse struct {
 	ID        string  `json:"id"`
 	Name      string  `json:"name"`
 	Email     string  `json:"email"`
+	Phone     string  `json:"phone"`
+	Document  string  `json:"document"`
+	BirthDate string  `json:"birth_date"`
+	Cep       string  `json:"cep"`
 	AvatarURL *string `json:"avatar_url,omitempty"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt string  `json:"updated_at"`
@@ -318,12 +335,27 @@ type authResponse struct {
 }
 
 func toUserResponse(u user.User) userResponse {
+	birthDate := ""
+	if u.BirthDate != nil {
+		birthDate = u.BirthDate.Format("2006-01-02")
+	}
 	return userResponse{
 		ID:        u.ID,
 		Name:      u.Name,
 		Email:     u.Email,
+		Phone:     strVal(u.Phone),
+		Document:  strVal(u.Document),
+		BirthDate: birthDate,
+		Cep:       strVal(u.Cep),
 		AvatarURL: u.AvatarURL,
 		CreatedAt: u.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: u.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+}
+
+func strVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
