@@ -450,7 +450,7 @@ Base URL: `http://localhost:8080`
 
 ### 4.1 Saúde
 ```
-GET  /api                       → { status, checks: { database, redis, kafka } }
+GET  /api                       → { status, checks: { database, redis } }
 ```
 
 ### 4.2 Autenticação
@@ -512,7 +512,7 @@ DELETE /api/categories/{id}                          → 204
 POST   /api/groups/{groupId}/payments               → CreatePaymentRequest → Payment
 GET    /api/groups/{groupId}/payments?limit=&offset= → PaginatedResponse<Payment>
 GET    /api/payments/{id}                            → Payment
-PATCH  /api/payments/{id}/confirm                    → 204 (publica evento Kafka)
+PATCH  /api/payments/{id}/confirm                    → 204
 PATCH  /api/payments/{id}/cancel                     → 204
 DELETE /api/payments/{id}                            → 204
 POST   /api/payments/{id}/attachments               → FormData (file) → PaymentAttachment
@@ -847,7 +847,7 @@ Componente reutilizável com:
   |-----------|-----------|---------|-----------|----------|
   | Maria     | João      | R$ 50   | pendente  | [Cobrar] |
   ```
-- **Botão "Cobrar"**: marca payment como `confirmed` + envia notificação via Kafka
+- **Botão "Cobrar"**: marca payment como `confirmed`
 - **Histórico de pagamentos**: lista cronológica de todos os pagamentos do grupo
 - **Novo pagamento**: FAB → formulário: pagador, recebedor, valor, data, observação
 

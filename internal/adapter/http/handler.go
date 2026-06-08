@@ -7,17 +7,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	"github.com/segmentio/kafka-go"
 )
 
 type HealthHandler struct {
-	pool         *pgxpool.Pool
-	rdb          *redis.Client
-	kafkaBrokers string
+	pool *pgxpool.Pool
+	rdb  *redis.Client
 }
 
-func NewHealthHandler(pool *pgxpool.Pool, rdb *redis.Client, kafkaBrokers string) *HealthHandler {
-	return &HealthHandler{pool: pool, rdb: rdb, kafkaBrokers: kafkaBrokers}
+func NewHealthHandler(pool *pgxpool.Pool, rdb *redis.Client) *HealthHandler {
+	return &HealthHandler{pool: pool, rdb: rdb}
 }
 
 type healthCheck struct {
@@ -48,16 +46,6 @@ func (h *HealthHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusServiceUnavailable
 	} else {
 		result.Checks["redis"] = "healthy"
-	}
-
-	// Kafka
-	conn, err := kafka.Dial("tcp", h.kafkaBrokers)
-	if err != nil {
-		result.Checks["kafka"] = "unhealthy"
-		statusCode = http.StatusServiceUnavailable
-	} else {
-		conn.Close()
-		result.Checks["kafka"] = "healthy"
 	}
 
 	if statusCode == http.StatusOK {

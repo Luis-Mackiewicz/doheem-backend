@@ -8,14 +8,12 @@ import (
 type TaskService struct {
 	taskRepo         TaskRepository
 	taskOccurrenceRepo TaskOccurrenceRepository
-	eventBus         EventBus
 }
 
-func NewTaskService(taskRepo TaskRepository, taskOccurrenceRepo TaskOccurrenceRepository, eventBus EventBus) *TaskService {
+func NewTaskService(taskRepo TaskRepository, taskOccurrenceRepo TaskOccurrenceRepository) *TaskService {
 	return &TaskService{
 		taskRepo:         taskRepo,
 		taskOccurrenceRepo: taskOccurrenceRepo,
-		eventBus:         eventBus,
 	}
 }
 
@@ -56,26 +54,6 @@ func (s *TaskService) CompleteOccurrence(ctx context.Context, id, completedBy st
 		return err
 	}
 
-	occ, err := s.taskOccurrenceRepo.GetByID(ctx, id)
-	if err != nil {
-		return nil
-	}
-	task, err := s.taskRepo.GetByID(ctx, occ.TaskID)
-	if err != nil {
-		return nil
-	}
-
-	s.eventBus.Publish(ctx, DomainEvent{
-		Type:     "task.occurrence.completed",
-		EntityID: id,
-		UserID:   completedBy,
-		GroupID:  task.GroupID,
-		Payload: map[string]any{
-			"task_id":    task.ID,
-			"task_title": task.Title,
-			"assigned_to": task.AssignedTo,
-		},
-	})
 	return nil
 }
 

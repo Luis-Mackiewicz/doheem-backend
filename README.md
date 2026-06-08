@@ -18,7 +18,6 @@ O **Doheem Backend** é a camada de negócios e dados da plataforma Doheem. Cons
 | **PostgreSQL** | Banco de dados relacional |
 | **SQLC** | Geração de código type-safe a partir de queries SQL |  
 | **Redis** | Cache de sessões e dados temporários |
-| **Kafka** | Mensageria assíncrona para eventos de tarefas e notificações |
 | **Docker / Docker Compose** | Containerização e orquestração do ambiente |
 
 ---
@@ -29,7 +28,7 @@ O projeto adota **Arquitetura Hexagonal** (Ports & Adapters), garantindo desacop
 
 ### 🤔 Por que Arquitetura Hexagonal?
 
-O Doheem possui uma característica que torna essa escolha natural: **múltiplas integrações externas simultâneas**. O sistema conversa com PostgreSQL (persistência), Redis (cache), Kafka (mensageria) e uma API HTTP — ou seja, quatro "portas" de entrada e saída diferentes.
+O Doheem possui uma característica que torna essa escolha natural: **múltiplas integrações externas simultâneas**. O sistema conversa com PostgreSQL (persistência), Redis (cache) e uma API HTTP — ou seja, três "portas" de entrada e saída diferentes.
 
 Em uma arquitetura tradicional em camadas, a lógica de negócio ficaria acoplada a essas dependências. Isso significa que, por exemplo, a regra de *"dividir uma despesa igualmente entre os moradores"* estaria misturada com código de banco de dados ou HTTP — tornando o sistema frágil e difícil de testar.
 
@@ -39,10 +38,9 @@ Com a **Arquitetura Hexagonal**, o domínio de negócio fica no centro, completa
 |---|---|
 | Trocar o banco de dados exigiria alterar regras de negócio | O repositório é uma interface (Port); só o Adapter muda |
 | Testar a lógica de divisão de despesas exige subir o banco | O domínio é testável puro, sem infraestrutura |
-| Kafka acoplado ao Service dificulta manutenção | O Messaging é um Adapter substituível |
 | Difícil adicionar novo canal (ex: WebSocket) | Basta criar um novo Adapter HTTP sem tocar no domínio |
 
-Em termos práticos para o TCC: essa arquitetura permite que a **regra de negócio seja o coração do sistema**, independente de qual tecnologia está ao redor. Se amanhã o projeto migrar de Kafka para RabbitMQ, ou de PostgreSQL para outro banco, as regras de divisão de despesas e gestão de tarefas continuam intactas.
+Em termos práticos para o TCC: essa arquitetura permite que a **regra de negócio seja o coração do sistema**, independente de qual tecnologia está ao redor. Se amanhã o projeto migrar de PostgreSQL para outro banco, as regras de divisão de despesas e gestão de tarefas continuam intactas.
 
 ```
 cmd/
@@ -58,19 +56,16 @@ internal/
 │   ├── expense_service.go
 │   ├── task_service.go
 │   └── auth_service.go
-└── adapters/                    # Implementações externas (HTTP, DB, Kafka, Redis)
+└── adapters/                    # Implementações externas (HTTP, DB, Redis)
     ├── http/                    # Handlers e rotas
     ├── repository/              # Queries SQLC / PostgreSQL
-    ├── cache/                   # Integração Redis
-    └── messaging/               # Producers e Consumers Kafka
+    └── cache/                   # Integração Redis
 ```
 
 ### Fluxo de dados
 
 ```
 HTTP Request → Handler (Adapter) → Service (Port) → Domain → Repository (Adapter)
-                                                   ↓
-                                           Kafka Producer → Event Bus → Consumer
 ```
 
 ---
@@ -104,7 +99,7 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-Isso iniciará PostgreSQL, Redis e Kafka automaticamente.
+Isso iniciará PostgreSQL e Redis automaticamente.
 
 ### 4. Execute a aplicação
 
@@ -144,26 +139,6 @@ A API estará disponível em `http://localhost:8080`.
 | `POST` | `/tasks` | Cria nova tarefa |
 | `PATCH` | `/tasks/:id/status` | Atualiza status da tarefa |
 | `DELETE` | `/tasks/:id` | Remove uma tarefa |
-
----
-
-## ⚡ Destaque Técnico — Processamento Orientado a Eventos
-
-O módulo de tarefas utiliza **Apache Kafka** para processamento assíncrono de eventos, garantindo alta escalabilidade e desacoplamento entre os serviços.
-
-```
-Morador conclui tarefa
-       ↓
-  HTTP Handler
-       ↓
-  Task Service → Publica evento `task.completed` no Kafka
-                          ↓
-               Notification Consumer
-                          ↓
-          Envia notificação para os outros moradores
-```
-
-Isso permite que notificações, atualizações de pontuação e logs de auditoria sejam processados de forma independente, sem impactar a latência da requisição principal.
 
 ---
 

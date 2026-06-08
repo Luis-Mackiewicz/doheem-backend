@@ -1,22 +1,3 @@
-// @title           Doheem API
-// @version         1.0
-// @description     Backend for the Doheem expense management application
-// @termsOfService  https://github.com/Luis-Mackiewicz/doheem-backend
-
-// @contact.name   Luis Mackiewicz
-// @contact.email  luis@example.com
-
-// @license.name  MIT
-// @license.url   https://opensource.org/licenses/MIT
-
-// @host      localhost:8080
-// @BasePath  /api
-
-// @securityDefinitions.apikey  BearerAuth
-// @in                          header
-// @name                        Authorization
-// @description                Enter "Bearer <token>"
-
 package main
 
 import (
@@ -29,7 +10,6 @@ import (
 	"time"
 
 	adapterhttp "doheem-backend/internal/adapter/http"
-	"doheem-backend/internal/adapter/messaging"
 	"doheem-backend/internal/adapter/repository"
 	"doheem-backend/internal/adapter/repository/db"
 	"doheem-backend/internal/config"
@@ -102,23 +82,15 @@ func main() {
 	groupSvc := domain.NewGroupService(groupRepo, groupMemberRepo)
 	notificationSvc := domain.NewNotificationService(notificationRepo)
 
-	eventBus := messaging.NewKafkaEventBus(cfg.KafkaBrokers)
-	defer eventBus.Close()
-
-	messaging.StartConsumer(ctx, cfg.KafkaBrokers, messaging.ConsumerDeps{
-		NotifSvc:  notificationSvc,
-		MemberSvc: groupSvc,
-	})
-
-	expenseSvc := domain.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo, eventBus)
-	paymentSvc := domain.NewPaymentService(paymentRepo, paymentAttachmentRepo, eventBus)
-	taskSvc := domain.NewTaskService(taskRepo, taskOccurrenceRepo, eventBus)
+	expenseSvc := domain.NewExpenseService(expenseRepo, expenseSplitRepo, installmentRepo, categoryRepo, groupMemberRepo)
+	paymentSvc := domain.NewPaymentService(paymentRepo, paymentAttachmentRepo)
+	taskSvc := domain.NewTaskService(taskRepo, taskOccurrenceRepo)
 	inviteSvc := domain.NewInviteService(inviteRepo, groupMemberRepo, groupRepo)
 	splitTagSvc := domain.NewSplitTagService(splitTagRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 
-	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc, rdb, pool, cfg.KafkaBrokers)
+	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, paymentSvc, taskSvc, inviteSvc, notificationSvc, splitTagSvc, rdb, pool)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

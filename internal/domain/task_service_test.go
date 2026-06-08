@@ -94,7 +94,7 @@ func (m *mockTaskOccurrenceRepo) DeleteByTask(ctx context.Context, taskID string
 
 func TestTaskService_GetByID_NotFound(t *testing.T) {
 	mockTask := new(mockTaskRepo)
-	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo), new(mockEventBus))
+	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo))
 	ctx := context.Background()
 
 	mockTask.On("GetByID", ctx, "999").Return(Task{}, assert.AnError)
@@ -106,7 +106,7 @@ func TestTaskService_GetByID_NotFound(t *testing.T) {
 
 func TestTaskService_GetByID_Success(t *testing.T) {
 	mockTask := new(mockTaskRepo)
-	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo), new(mockEventBus))
+	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo))
 	ctx := context.Background()
 
 	mockTask.On("GetByID", ctx, "1").Return(Task{ID: "1", Title: "Test Task"}, nil)
@@ -124,28 +124,20 @@ func strPtr(s string) *string {
 func TestTaskService_CompleteOccurrence(t *testing.T) {
 	mockTask := new(mockTaskRepo)
 	mockOccurrence := new(mockTaskOccurrenceRepo)
-	mockBus := new(mockEventBus)
-	svc := NewTaskService(mockTask, mockOccurrence, mockBus)
+	svc := NewTaskService(mockTask, mockOccurrence)
 	ctx := context.Background()
 
 	mockOccurrence.On("Complete", ctx, "o1", "u1").Return(nil)
-	mockOccurrence.On("GetByID", ctx, "o1").Return(TaskOccurrence{ID: "o1", TaskID: "t1"}, nil)
-	mockTask.On("GetByID", ctx, "t1").Return(Task{ID: "t1", Title: "Test", GroupID: "g1", AssignedTo: strPtr("u2")}, nil)
-	mockBus.On("Publish", ctx, mock.MatchedBy(func(e DomainEvent) bool {
-		return e.Type == "task.occurrence.completed"
-	})).Return(nil)
 
 	err := svc.CompleteOccurrence(ctx, "o1", "u1")
 
 	assert.NoError(t, err)
 	mockOccurrence.AssertExpectations(t)
-	mockTask.AssertExpectations(t)
-	mockBus.AssertExpectations(t)
 }
 
 func TestTaskService_DiscardOccurrence(t *testing.T) {
 	mockOccurrence := new(mockTaskOccurrenceRepo)
-	svc := NewTaskService(new(mockTaskRepo), mockOccurrence, new(mockEventBus))
+	svc := NewTaskService(new(mockTaskRepo), mockOccurrence)
 	ctx := context.Background()
 
 	mockOccurrence.On("Discard", ctx, "o1").Return(nil)

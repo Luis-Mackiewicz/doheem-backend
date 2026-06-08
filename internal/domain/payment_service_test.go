@@ -78,26 +78,21 @@ func (m *mockPaymentAttachmentRepo) Delete(ctx context.Context, id string) error
 
 func TestPaymentService_Confirm_Success(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	mockBus := new(mockEventBus)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), mockBus)
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "p1").Return(Payment{ID: "p1", Status: "pending", GroupID: "g1", PayerID: "u1", ReceiverID: "u2", Amount: 100}, nil)
 	mockPayment.On("Confirm", ctx, "p1").Return(nil)
-	mockBus.On("Publish", ctx, mock.MatchedBy(func(e DomainEvent) bool {
-		return e.Type == "payment.confirmed"
-	})).Return(nil)
 
 	err := svc.Confirm(ctx, "p1")
 
 	assert.NoError(t, err)
 	mockPayment.AssertExpectations(t)
-	mockBus.AssertExpectations(t)
 }
 
 func TestPaymentService_Confirm_AlreadyConfirmed(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), new(mockEventBus))
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "p1").Return(Payment{ID: "p1", Status: "confirmed"}, nil)
@@ -110,7 +105,7 @@ func TestPaymentService_Confirm_AlreadyConfirmed(t *testing.T) {
 
 func TestPaymentService_Confirm_AlreadyCancelled(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), new(mockEventBus))
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "p1").Return(Payment{ID: "p1", Status: "cancelled"}, nil)
@@ -123,7 +118,7 @@ func TestPaymentService_Confirm_AlreadyCancelled(t *testing.T) {
 
 func TestPaymentService_Cancel_Success(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), new(mockEventBus))
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "p1").Return(Payment{ID: "p1", Status: "pending"}, nil)
@@ -137,7 +132,7 @@ func TestPaymentService_Cancel_Success(t *testing.T) {
 
 func TestPaymentService_Cancel_AlreadyCancelled(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), new(mockEventBus))
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "p1").Return(Payment{ID: "p1", Status: "cancelled"}, nil)
@@ -150,7 +145,7 @@ func TestPaymentService_Cancel_AlreadyCancelled(t *testing.T) {
 
 func TestPaymentService_Confirm_NotFound(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), new(mockEventBus))
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "999").Return(Payment{}, assert.AnError)
@@ -162,7 +157,7 @@ func TestPaymentService_Confirm_NotFound(t *testing.T) {
 
 func TestPaymentService_GetByID_NotFound(t *testing.T) {
 	mockPayment := new(mockPaymentRepo)
-	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo), new(mockEventBus))
+	svc := NewPaymentService(mockPayment, new(mockPaymentAttachmentRepo))
 	ctx := context.Background()
 
 	mockPayment.On("GetByID", ctx, "999").Return(Payment{}, assert.AnError)

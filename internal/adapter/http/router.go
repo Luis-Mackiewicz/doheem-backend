@@ -4,12 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	_ "doheem-backend/internal/adapter/http/docs"
 	"doheem-backend/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Router struct {
@@ -24,7 +22,6 @@ type Router struct {
 	splitTag     *SplitTagHandler
 	rdb          *redis.Client
 	pool         *pgxpool.Pool
-	kafkaBrokers string
 }
 
 func NewRouter(
@@ -39,7 +36,6 @@ func NewRouter(
 	splitTagSvc *domain.SplitTagService,
 	rdb *redis.Client,
 	pool *pgxpool.Pool,
-	kafkaBrokers string,
 ) *Router {
 	return &Router{
 		jwt:          jwt,
@@ -53,17 +49,14 @@ func NewRouter(
 		splitTag:     NewSplitTagHandler(splitTagSvc),
 		rdb:          rdb,
 		pool:         pool,
-		kafkaBrokers: kafkaBrokers,
 	}
 }
 
 func (rt *Router) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	health := NewHealthHandler(rt.pool, rt.rdb, rt.kafkaBrokers)
+	health := NewHealthHandler(rt.pool, rt.rdb)
 	mux.HandleFunc("GET /", health.HealthCheck)
-
-	mux.Handle("GET /api/swagger/*", httpSwagger.Handler())
 
 	authLimiter := RateLimitMiddleware(NewRateLimiter(rt.rdb, 10, time.Minute))
 	mux.Handle("POST /api/auth/register", authLimiter(http.HandlerFunc(rt.user.Register)))
