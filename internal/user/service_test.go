@@ -23,6 +23,16 @@ func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (User, erro
 	return args.Get(0).(User), args.Error(1)
 }
 
+func (m *mockUserRepo) GetByDocument(ctx context.Context, document string) (User, error) {
+	args := m.Called(ctx, document)
+	return args.Get(0).(User), args.Error(1)
+}
+
+func (m *mockUserRepo) GetByPhone(ctx context.Context, phone string) (User, error) {
+	args := m.Called(ctx, phone)
+	return args.Get(0).(User), args.Error(1)
+}
+
 func (m *mockUserRepo) List(ctx context.Context) ([]User, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]User), args.Error(1)

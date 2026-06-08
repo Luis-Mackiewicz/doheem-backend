@@ -18,6 +18,10 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+func strPtr(s string) *string {
+	return &s
+}
+
 var TestPool *pgxpool.Pool
 var testUserCounter int
 
@@ -88,10 +92,15 @@ func CreateTestUser(t *testing.T, q *db.Queries) user.User {
 	t.Helper()
 	testUserCounter++
 	repo := user.NewUserRepo(q)
+	now := time.Now()
 	u, err := repo.Create(context.Background(), user.CreateUserParams{
 		Name:         "Test User",
 		Email:        "test-" + t.Name() + "-" + fmt.Sprint(testUserCounter) + "@example.com",
 		PasswordHash: "hash",
+		Phone:        strPtr("11999999999"),
+		Document:     strPtr("123.456.789-00"),
+		BirthDate:    &now,
+		Cep:          strPtr("01001-000"),
 	})
 	require.NoError(t, err)
 	return u

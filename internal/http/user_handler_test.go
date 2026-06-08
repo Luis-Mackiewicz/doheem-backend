@@ -25,6 +25,14 @@ func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (user.User,
 	args := m.Called(ctx, email)
 	return args.Get(0).(user.User), args.Error(1)
 }
+func (m *mockUserRepo) GetByDocument(ctx context.Context, document string) (user.User, error) {
+	args := m.Called(ctx, document)
+	return args.Get(0).(user.User), args.Error(1)
+}
+func (m *mockUserRepo) GetByPhone(ctx context.Context, phone string) (user.User, error) {
+	args := m.Called(ctx, phone)
+	return args.Get(0).(user.User), args.Error(1)
+}
 func (m *mockUserRepo) List(ctx context.Context) ([]user.User, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]user.User), args.Error(1)
@@ -92,6 +100,8 @@ func TestRegister_Success(t *testing.T) {
 	handler := NewUserHandler(svc, jwt)
 
 	repo.On("GetByEmail", mock.Anything, "test@example.com").Return(user.User{}, nil)
+	repo.On("GetByDocument", mock.Anything, "123.456.789-00").Return(user.User{}, nil)
+	repo.On("GetByPhone", mock.Anything, "11999999999").Return(user.User{}, nil)
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(p user.CreateUserParams) bool {
 		return p.Email == "test@example.com" && p.Name == "Test" && p.PasswordHash != ""
 	})).Return(user.User{ID: "u1", Name: "Test", Email: "test@example.com"}, nil)
@@ -99,7 +109,7 @@ func TestRegister_Success(t *testing.T) {
 		return p.UserID == "u1" && p.TokenHash != ""
 	})).Return(nil)
 
-	body := `{"name":"Test","email":"test@example.com","password":"123456"}`
+	body := `{"name":"Test","email":"test@example.com","password":"123456","phone":"11999999999","document":"123.456.789-00","birth_date":"1990-05-20","cep":"01001-000"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -146,8 +156,10 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	repo.On("GetByEmail", mock.Anything, "exists@example.com").Return(user.User{ID: "existing"}, nil)
+	repo.On("GetByDocument", mock.Anything, "123.456.789-00").Return(user.User{}, nil).Maybe()
+	repo.On("GetByPhone", mock.Anything, "11999999999").Return(user.User{}, nil).Maybe()
 
-	body := `{"name":"Test","email":"exists@example.com","password":"123456"}`
+	body := `{"name":"Test","email":"exists@example.com","password":"123456","phone":"11999999999","document":"123.456.789-00","birth_date":"1990-05-20","cep":"01001-000"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

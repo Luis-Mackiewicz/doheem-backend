@@ -3,6 +3,7 @@ package user_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"doheem-backend/internal/dbtest"
 	"doheem-backend/internal/user"
@@ -11,16 +12,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testUserParams(name, email string) user.CreateUserParams {
+	now := time.Now()
+	return user.CreateUserParams{
+		Name:         name,
+		Email:        email,
+		PasswordHash: "hashed-password",
+		Phone:        strPtr("11999999999"),
+		Document:     strPtr("123.456.789-00"),
+		BirthDate:    &now,
+		Cep:          strPtr("01001-000"),
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
 func TestUserRepo_CreateAndGetByID(t *testing.T) {
 	q := dbtest.NewTxQueries(t)
 	repo := user.NewUserRepo(q)
 	ctx := context.Background()
 
-	params := user.CreateUserParams{
-		Name:         "John Doe",
-		Email:        "john@example.com",
-		PasswordHash: "hashed-password",
-	}
+	params := testUserParams("John Doe", "john@example.com")
 
 	createdUser, err := repo.Create(ctx, params)
 	require.NoError(t, err)
@@ -39,11 +51,7 @@ func TestUserRepo_GetByEmail(t *testing.T) {
 	repo := user.NewUserRepo(q)
 	ctx := context.Background()
 
-	params := user.CreateUserParams{
-		Name:         "Jane Doe",
-		Email:        "jane@example.com",
-		PasswordHash: "hashed-password",
-	}
+	params := testUserParams("Jane Doe", "jane@example.com")
 
 	createdUser, err := repo.Create(ctx, params)
 	require.NoError(t, err)
@@ -67,11 +75,7 @@ func TestUserRepo_Update(t *testing.T) {
 	repo := user.NewUserRepo(q)
 	ctx := context.Background()
 
-	createdUser, err := repo.Create(ctx, user.CreateUserParams{
-		Name:         "Old Name",
-		Email:        "update@example.com",
-		PasswordHash: "hash",
-	})
+	createdUser, err := repo.Create(ctx, testUserParams("Old Name", "update@example.com"))
 	require.NoError(t, err)
 
 	newName := "New Name"
@@ -90,11 +94,7 @@ func TestUserRepo_UpdatePassword(t *testing.T) {
 	repo := user.NewUserRepo(q)
 	ctx := context.Background()
 
-	createdUser, err := repo.Create(ctx, user.CreateUserParams{
-		Name:         "Password User",
-		Email:        "password@example.com",
-		PasswordHash: "old-hash",
-	})
+	createdUser, err := repo.Create(ctx, testUserParams("Password User", "password@example.com"))
 	require.NoError(t, err)
 
 	err = repo.UpdatePassword(ctx, createdUser.ID, "new-hash")
@@ -110,11 +110,7 @@ func TestUserRepo_Delete(t *testing.T) {
 	repo := user.NewUserRepo(q)
 	ctx := context.Background()
 
-	createdUser, err := repo.Create(ctx, user.CreateUserParams{
-		Name:         "Delete Me",
-		Email:        "delete@example.com",
-		PasswordHash: "hash",
-	})
+	createdUser, err := repo.Create(ctx, testUserParams("Delete Me", "delete@example.com"))
 	require.NoError(t, err)
 
 	err = repo.Delete(ctx, createdUser.ID)
@@ -139,17 +135,13 @@ func TestUserRepo_EmailUnique(t *testing.T) {
 	repo := user.NewUserRepo(q)
 	ctx := context.Background()
 
-	_, err := repo.Create(ctx, user.CreateUserParams{
-		Name:         "First",
-		Email:        "unique@example.com",
-		PasswordHash: "hash",
-	})
+	first := testUserParams("First", "unique@example.com")
+	first.Document = strPtr("111.111.111-11")
+	_, err := repo.Create(ctx, first)
 	require.NoError(t, err)
 
-	_, err = repo.Create(ctx, user.CreateUserParams{
-		Name:         "Second",
-		Email:        "unique@example.com",
-		PasswordHash: "hash",
-	})
+	second := testUserParams("Second", "unique@example.com")
+	second.Document = strPtr("222.222.222-22")
+	_, err = repo.Create(ctx, second)
 	assert.Error(t, err)
 }
