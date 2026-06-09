@@ -101,6 +101,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("PATCH /api/tasks/occurrences/{id}/complete", rt.auth(rt.task.CompleteOccurrence))
 	mux.Handle("PATCH /api/tasks/occurrences/{id}/discard", rt.auth(rt.task.DiscardOccurrence))
 
+	mux.Handle("POST /api/notifications", rt.auth(rt.notification.Create))
 	mux.Handle("GET /api/notifications", rt.auth(rt.notification.List))
 	mux.Handle("GET /api/notifications/unread", rt.auth(rt.notification.ListUnread))
 	mux.Handle("PATCH /api/notifications/{id}/read", rt.auth(rt.notification.MarkAsRead))

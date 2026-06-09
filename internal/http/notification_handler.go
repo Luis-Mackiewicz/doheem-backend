@@ -14,6 +14,43 @@ func NewNotificationHandler(svc *notification.NotificationService) *Notification
 	return &NotificationHandler{svc: svc}
 }
 
+// Create creates a new notification for the authenticated user
+// @Summary Create a notification
+// @Description Create a new notification for the currently authenticated user (useful for testing)
+// @Tags Notifications
+// @Accept json
+// @Produce json
+// @Param request body object{type=string,title=string,message=string} true "Notification details"
+// @Success 201 {object} notificationResponse
+// @Failure 400 {object} map[string]any "Validation error"
+// @Failure 401 {object} map[string]any "Unauthorized"
+// @Failure 500 {object} map[string]any "Internal server error"
+// @Router /api/notifications [post]
+// @Security BearerAuth
+func (h *NotificationHandler) Create(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
+	var req struct {
+		Type    string  `json:"type"    validate:"required"`
+		Title   string  `json:"title"   validate:"required"`
+		Message string  `json:"message" validate:"required"`
+	}
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
+		return
+	}
+	n, err := h.svc.Create(r.Context(), notification.CreateNotificationParams{
+		UserID:  userID,
+		Type:    req.Type,
+		Title:   req.Title,
+		Message: req.Message,
+	})
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	respondJSON(w, http.StatusCreated, toNotificationResponse(n))
+}
+
 // List lists notifications for the authenticated user
 // @Summary List notifications
 // @Description List all notifications for the currently authenticated user with pagination
