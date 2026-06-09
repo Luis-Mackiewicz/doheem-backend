@@ -171,15 +171,32 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name      *string `json:"name,omitempty"`
 		Email     *string `json:"email,omitempty"     validate:"omitempty,email"`
+		Phone     *string `json:"phone,omitempty"`
+		Document  *string `json:"document,omitempty"`
+		BirthDate *string `json:"birth_date,omitempty"`
+		Cep       *string `json:"cep,omitempty"`
 		AvatarURL *string `json:"avatar_url,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
+	var birthDate *time.Time
+	if req.BirthDate != nil {
+		parsed, err := time.Parse("2006-01-02", *req.BirthDate)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid birth_date format, use YYYY-MM-DD")
+			return
+		}
+		birthDate = &parsed
+	}
 	updated, err := h.svc.Update(r.Context(), userID, user.UpdateUserParams{
 		Name:      req.Name,
 		Email:     req.Email,
+		Phone:     req.Phone,
+		Document:  req.Document,
+		BirthDate: birthDate,
+		Cep:       req.Cep,
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
@@ -313,7 +330,7 @@ func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clearRefreshTokenCookie(w)
-	w.WriteHeader(http.StatusNoContent)
+	respondJSON(w, http.StatusOK, map[string]string{"message": "logged out successfully"})
 }
 
 type userResponse struct {
