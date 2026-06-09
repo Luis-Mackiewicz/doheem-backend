@@ -1,0 +1,2 @@
+ALTER TABLE groups DROP COLUMN cnpj;
+ALTER TABLE groups DROP COLUMN cep;

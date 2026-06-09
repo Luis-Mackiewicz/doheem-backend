@@ -14,7 +14,7 @@ import (
 const createGroup = `-- name: CreateGroup :one
 INSERT INTO groups (name, invite_token)
 VALUES ($1, gen_random_uuid()::text)
-RETURNING id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at
+RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at
 `
 
 func (q *Queries) CreateGroup(ctx context.Context, name string) (Group, error) {
@@ -25,8 +25,6 @@ func (q *Queries) CreateGroup(ctx context.Context, name string) (Group, error) {
 		&i.Name,
 		&i.Description,
 		&i.MonthlyFee,
-		&i.Cnpj,
-		&i.Cep,
 		&i.PhotoUrl,
 		&i.InviteToken,
 		&i.CreatedAt,
@@ -36,7 +34,7 @@ func (q *Queries) CreateGroup(ctx context.Context, name string) (Group, error) {
 }
 
 const getGroupByID = `-- name: GetGroupByID :one
-SELECT id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at FROM groups
+SELECT id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at FROM groups
 WHERE id = $1
 `
 
@@ -48,8 +46,6 @@ func (q *Queries) GetGroupByID(ctx context.Context, id pgtype.UUID) (Group, erro
 		&i.Name,
 		&i.Description,
 		&i.MonthlyFee,
-		&i.Cnpj,
-		&i.Cep,
 		&i.PhotoUrl,
 		&i.InviteToken,
 		&i.CreatedAt,
@@ -59,7 +55,7 @@ func (q *Queries) GetGroupByID(ctx context.Context, id pgtype.UUID) (Group, erro
 }
 
 const listGroupsByUserID = `-- name: ListGroupsByUserID :many
-SELECT g.id, g.name, g.description, g.monthly_fee, g.cnpj, g.cep, g.photo_url, g.invite_token, g.created_at, g.updated_at FROM groups g
+SELECT g.id, g.name, g.description, g.monthly_fee, g.photo_url, g.invite_token, g.created_at, g.updated_at FROM groups g
 JOIN group_members gm ON gm.group_id = g.id
 WHERE gm.user_id = $1
 ORDER BY g.name
@@ -79,8 +75,6 @@ func (q *Queries) ListGroupsByUserID(ctx context.Context, userID pgtype.UUID) ([
 			&i.Name,
 			&i.Description,
 			&i.MonthlyFee,
-			&i.Cnpj,
-			&i.Cep,
 			&i.PhotoUrl,
 			&i.InviteToken,
 			&i.CreatedAt,
@@ -101,7 +95,7 @@ UPDATE groups
 SET invite_token = $2,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at
+RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at
 `
 
 type RegenerateInviteTokenParams struct {
@@ -117,8 +111,6 @@ func (q *Queries) RegenerateInviteToken(ctx context.Context, arg RegenerateInvit
 		&i.Name,
 		&i.Description,
 		&i.MonthlyFee,
-		&i.Cnpj,
-		&i.Cep,
 		&i.PhotoUrl,
 		&i.InviteToken,
 		&i.CreatedAt,
@@ -132,12 +124,10 @@ UPDATE groups
 SET name = COALESCE($2, name),
     description = COALESCE($3, description),
     monthly_fee = COALESCE($4, monthly_fee),
-    cnpj = COALESCE($5, cnpj),
-    cep = COALESCE($6, cep),
-    photo_url = COALESCE($7, photo_url),
+    photo_url = COALESCE($5, photo_url),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, name, description, monthly_fee, cnpj, cep, photo_url, invite_token, created_at, updated_at
+RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at
 `
 
 type UpdateGroupParams struct {
@@ -145,8 +135,6 @@ type UpdateGroupParams struct {
 	Name        string
 	Description string
 	MonthlyFee  pgtype.Numeric
-	Cnpj        string
-	Cep         string
 	PhotoUrl    pgtype.Text
 }
 
@@ -156,8 +144,6 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group
 		arg.Name,
 		arg.Description,
 		arg.MonthlyFee,
-		arg.Cnpj,
-		arg.Cep,
 		arg.PhotoUrl,
 	)
 	var i Group
@@ -166,8 +152,6 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group
 		&i.Name,
 		&i.Description,
 		&i.MonthlyFee,
-		&i.Cnpj,
-		&i.Cep,
 		&i.PhotoUrl,
 		&i.InviteToken,
 		&i.CreatedAt,

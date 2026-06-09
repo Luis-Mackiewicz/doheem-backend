@@ -11,8 +11,6 @@ type Group struct {
 	Name        string
 	Description string
 	MonthlyFee  float64
-	Cnpj        string
-	Cep         string
 	PhotoURL    *string
 	InviteToken *string
 	CreatedAt   time.Time
@@ -27,8 +25,6 @@ type UpdateGroupParams struct {
 	Name        *string
 	Description *string
 	MonthlyFee  *float64
-	Cnpj        *string
-	Cep         *string
 	PhotoURL    *string
 }
 

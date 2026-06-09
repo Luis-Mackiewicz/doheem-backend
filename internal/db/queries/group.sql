@@ -1,9 +1,9 @@
 -- name: GetGroupByID :one
-SELECT * FROM groups
+SELECT id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at FROM groups
 WHERE id = $1;
 
 -- name: ListGroupsByUserID :many
-SELECT g.* FROM groups g
+SELECT g.id, g.name, g.description, g.monthly_fee, g.photo_url, g.invite_token, g.created_at, g.updated_at FROM groups g
 JOIN group_members gm ON gm.group_id = g.id
 WHERE gm.user_id = $1
 ORDER BY g.name;
@@ -11,23 +11,21 @@ ORDER BY g.name;
 -- name: CreateGroup :one
 INSERT INTO groups (name, invite_token)
 VALUES ($1, gen_random_uuid()::text)
-RETURNING *;
+RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at;
 
 -- name: UpdateGroup :one
 UPDATE groups
 SET name = COALESCE($2, name),
     description = COALESCE($3, description),
     monthly_fee = COALESCE($4, monthly_fee),
-    cnpj = COALESCE($5, cnpj),
-    cep = COALESCE($6, cep),
-    photo_url = COALESCE($7, photo_url),
+    photo_url = COALESCE($5, photo_url),
     updated_at = NOW()
 WHERE id = $1
-RETURNING *;
+RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at;
 
 -- name: RegenerateInviteToken :one
 UPDATE groups
 SET invite_token = $2,
     updated_at = NOW()
 WHERE id = $1
-RETURNING *;
+RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at;

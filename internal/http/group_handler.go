@@ -73,8 +73,6 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Name        *string  `json:"name,omitempty"`
 		Description *string  `json:"description,omitempty"`
 		MonthlyFee  *float64 `json:"monthly_fee,omitempty"`
-		Cnpj        *string  `json:"cnpj,omitempty"`
-		Cep         *string  `json:"cep,omitempty"`
 		PhotoURL    *string  `json:"photo_url,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
@@ -85,8 +83,6 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Name:        req.Name,
 		Description: req.Description,
 		MonthlyFee:  req.MonthlyFee,
-		Cnpj:        req.Cnpj,
-		Cep:         req.Cep,
 		PhotoURL:    req.PhotoURL,
 	})
 	if err != nil {
@@ -177,8 +173,6 @@ type groupResponse struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	MonthlyFee  float64 `json:"monthly_fee"`
-	Cnpj        string  `json:"cnpj"`
-	Cep         string  `json:"cep"`
 	PhotoURL    *string `json:"photo_url,omitempty"`
 	InviteToken *string `json:"invite_token,omitempty"`
 	CreatedAt   string  `json:"created_at"`
@@ -210,8 +204,6 @@ func toGroupResponse(g group.Group) groupResponse {
 		Name:        g.Name,
 		Description: g.Description,
 		MonthlyFee:  g.MonthlyFee,
-		Cnpj:        g.Cnpj,
-		Cep:         g.Cep,
 		PhotoURL:    g.PhotoURL,
 		InviteToken: g.InviteToken,
 		CreatedAt:   g.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),

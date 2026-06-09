@@ -46,8 +46,6 @@ func (r *GroupRepo) Update(ctx context.Context, id string, params UpdateGroupPar
 		Name:        deptrStr(params.Name),
 		Description: deptrStr(params.Description),
 		MonthlyFee:  deptrNumeric(params.MonthlyFee),
-		Cnpj:        deptrStr(params.Cnpj),
-		Cep:         deptrStr(params.Cep),
 		PhotoUrl:    db.TextFromStringPtr(params.PhotoURL),
 	})
 	if err != nil {
@@ -70,8 +68,6 @@ func toGroup(g db.Group) Group {
 		Name:        g.Name,
 		Description: g.Description,
 		MonthlyFee:  db.NumericToFloat64(g.MonthlyFee),
-		Cnpj:        g.Cnpj,
-		Cep:         g.Cep,
 		PhotoURL:    db.TextToStringPtr(g.PhotoUrl),
 		InviteToken: db.TextToStringPtr(g.InviteToken),
 		CreatedAt:   g.CreatedAt.Time,

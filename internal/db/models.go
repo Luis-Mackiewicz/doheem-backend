@@ -61,8 +61,6 @@ type Group struct {
 	Name        string
 	Description string
 	MonthlyFee  pgtype.Numeric
-	Cnpj        string
-	Cep         string
 	PhotoUrl    pgtype.Text
 	InviteToken pgtype.Text
 	CreatedAt   pgtype.Timestamptz
