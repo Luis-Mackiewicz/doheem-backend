@@ -207,8 +207,8 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 
 const updateUser = `-- name: UpdateUser :one
 UPDATE users
-SET name = COALESCE($2, name),
-    email = COALESCE($3, email),
+SET name = COALESCE(NULLIF($2, ''), name),
+    email = COALESCE(NULLIF($3, ''), email),
     avatar_url = COALESCE($4, avatar_url),
     phone = COALESCE($5, phone),
     document = COALESCE($6, document),
