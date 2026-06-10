@@ -1,83 +1,60 @@
-# 🏠 Doheem — Backend API
+# Doheem — Backend API
 
-> API de gestão para repúblicas estudantis: finanças compartilhadas, tarefas domésticas e convivência organizada.
+API de gestão para repúblicas estudantis: finanças compartilhadas, tarefas domésticas e convivência organizada.
 
----
-
-## 📌 Sobre o Projeto
-
-O **Doheem Backend** é a camada de negócios e dados da plataforma Doheem. Construído em **Go** com **Arquitetura Hexagonal**, oferece uma API REST de alta performance para gerenciar despesas compartilhadas, tarefas domésticas e autenticação de moradores de repúblicas estudantis.
-
----
-
-## 🛠️ Tecnologias
+## Tecnologias
 
 | Tecnologia | Função |
 |---|---|
-| **Go** | Linguagem principal da API |
-| **PostgreSQL** | Banco de dados relacional |
-| **SQLC** | Geração de código type-safe a partir de queries SQL |  
-| **Redis** | Cache de sessões e dados temporários |
-| **Docker / Docker Compose** | Containerização e orquestração do ambiente |
+| **Go 1.26** | Linguagem principal da API |
+| **PostgreSQL 18** | Banco de dados relacional |
+| **Redis 7** | Rate limiting (sliding window) |
+| **SQLC** | Geração de código type-safe a partir de queries SQL |
+| **pgx v5** | Driver PostgreSQL |
+| **go-redis v9** | Cliente Redis |
+| **golang-jwt v5** | Autenticação JWT + Refresh Tokens |
+| **go-playground/validator** | Validação de requests |
+| **testcontainers-go** | Testes de integração com banco real |
+| **golang-migrate** | Migrações de banco de dados |
+| **Docker / Docker Compose** | Containerização da infraestrutura |
 
----
-
-## 🏛️ Arquitetura
-
-O projeto adota **Arquitetura Hexagonal** (Ports & Adapters), garantindo desacoplamento entre regras de negócio e dependências externas.
-
-### 🤔 Por que Arquitetura Hexagonal?
-
-O Doheem possui uma característica que torna essa escolha natural: **múltiplas integrações externas simultâneas**. O sistema conversa com PostgreSQL (persistência), Redis (cache) e uma API HTTP — ou seja, três "portas" de entrada e saída diferentes.
-
-Em uma arquitetura tradicional em camadas, a lógica de negócio ficaria acoplada a essas dependências. Isso significa que, por exemplo, a regra de *"dividir uma despesa igualmente entre os moradores"* estaria misturada com código de banco de dados ou HTTP — tornando o sistema frágil e difícil de testar.
-
-Com a **Arquitetura Hexagonal**, o domínio de negócio fica no centro, completamente isolado:
-
-| Problema sem a arquitetura | Como a Hexagonal resolve |
-|---|---|
-| Trocar o banco de dados exigiria alterar regras de negócio | O repositório é uma interface (Port); só o Adapter muda |
-| Testar a lógica de divisão de despesas exige subir o banco | O domínio é testável puro, sem infraestrutura |
-| Difícil adicionar novo canal (ex: WebSocket) | Basta criar um novo Adapter HTTP sem tocar no domínio |
-
-Em termos práticos para o TCC: essa arquitetura permite que a **regra de negócio seja o coração do sistema**, independente de qual tecnologia está ao redor. Se amanhã o projeto migrar de PostgreSQL para outro banco, as regras de divisão de despesas e gestão de tarefas continuam intactas.
+## Estrutura do Projeto
 
 ```
 cmd/
-└── doheem/
-    └── main.go                  # Ponto de entrada da aplicação
+  main.go                        # Ponto de entrada da aplicação
 
 internal/
-├── domain/                      # Entidades e regras de negócio puras
-│   ├── expense/
-│   ├── task/
-│   └── user/
-├── services/                    # Casos de uso e orquestração
-│   ├── expense_service.go
-│   ├── task_service.go
-│   └── auth_service.go
-└── adapters/                    # Implementações externas (HTTP, DB, Redis)
-    ├── http/                    # Handlers e rotas
-    ├── repository/              # Queries SQLC / PostgreSQL
-    └── cache/                   # Integração Redis
+  audit_log/                     # Auditoria de ações (entity, repository)
+  config/                        # Configuração via environment variables
+  db/
+    migrations/                  # Migrations SQL (golang-migrate)
+    queries/                     # Queries SQL fonte (sqlc)
+    models.go                    # Structs geradas pelo sqlc
+    *.sql.go                     # Implementações geradas pelo sqlc
+    sqlc.yaml                    # Configuração do sqlc
+  dbtest/                        # Helpers para testes com testcontainers
+  expense/                       # Despesas (entity, service, repository, tests)
+  group/                         # Grupos (entity, service, repository, tests)
+  http/                          # Camada HTTP (handlers, middleware, router)
+  notification/                  # Notificações (entity, service, repository, tests)
+  task/                          # Tarefas (entity, service, repository, tests)
+  user/                          # Usuários (entity, service, repository, tests)
 ```
 
-### Fluxo de dados
+Cada domínio segue o mesmo padrão:
+- `entity.go` — structs de domínio + interfaces de repositório + erros
+- `service.go` — lógica de negócio (casos de uso)
+- `repository.go` — implementação concreta do repositório (usa `db.Queries` do sqlc)
+- `service_test.go` / `repository_test.go` — testes
 
-```
-HTTP Request → Handler (Adapter) → Service (Port) → Domain → Repository (Adapter)
-```
-
----
-
-## ✅ Pré-requisitos
+## Pré-requisitos
 
 - [Docker](https://www.docker.com/) e [Docker Compose](https://docs.docker.com/compose/) instalados
-- [Go 1.22+](https://golang.org/dl/) (para execução local sem Docker)
+- [Go 1.26+](https://golang.org/dl/) (para execução local sem Docker)
+- [golang-migrate](https://github.com/golang-migrate/migrate) (CLI para migrações)
 
----
-
-## 🚀 Como Rodar
+## Como Rodar
 
 ### 1. Clone o repositório
 
@@ -93,56 +70,149 @@ cp .env.example .env
 # Edite o .env com suas configurações locais
 ```
 
+Variáveis disponíveis (com defaults para desenvolvimento):
+
+| Variável | Default | Descrição |
+|---|---|---|
+| `DATABASE_URL` | `postgres://doheem_dev_user:simple_pswd@localhost:5432/doheem_dev_db` | Conexão PostgreSQL |
+| `REDIS_URL` | `redis://localhost:6379/0` | Conexão Redis |
+| `JWT_SECRET` | `doheem-dev-secret-change-in-production` | Chave JWT |
+| `JWT_EXPIRES_IN` | `24h` | Duração do token JWT |
+| `JWT_REFRESH_EXPIRES_IN` | `168h` (7 dias) | Duração do refresh token |
+| `PORT` | `8080` | Porta do servidor HTTP |
+| `APP_ENV` | `development` | Ambiente (`development` / `production`) |
+| `LOG_FORMAT` | `text` | Formato de log (`text` / `json`) |
+
 ### 3. Suba a infraestrutura com Docker Compose
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Isso iniciará PostgreSQL e Redis automaticamente.
 
-### 4. Execute a aplicação
+### 4. Execute as migrações
 
 ```bash
-go run cmd/doheem/main.go
+make migrate-up
+```
+
+### 5. Inicie a aplicação
+
+```bash
+go run cmd/main.go
 ```
 
 A API estará disponível em `http://localhost:8080`.
 
----
+### Docker (produção)
 
-## 📡 Endpoints Principais
+```bash
+docker build -t doheem-server .
+docker run -p 8080:8080 --env-file .env doheem-server
+```
 
-### 🔐 Autenticação — `/auth`
+## Endpoints
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/auth/register` | Cadastro de novo morador |
-| `POST` | `/auth/login` | Login e geração de token |
-| `POST` | `/auth/logout` | Invalidação de sessão |
-| `GET` | `/auth/me` | Dados do usuário autenticado |
-
-### 💸 Despesas — `/expenses`
+### Health Check
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/expenses` | Lista despesas da república |
-| `POST` | `/expenses` | Cria nova despesa compartilhada |
-| `PATCH` | `/expenses/:id/pay` | Marca parcela como paga |
-| `GET` | `/expenses/summary` | Resumo financeiro por morador |
+| `GET` | `/` | Health check (verifica PostgreSQL e Redis) |
 
-### ✅ Tarefas — `/tasks`
+### Autenticação — `/api/auth`
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/tasks` | Lista tarefas da república |
-| `POST` | `/tasks` | Cria nova tarefa |
-| `PATCH` | `/tasks/:id/status` | Atualiza status da tarefa |
-| `DELETE` | `/tasks/:id` | Remove uma tarefa |
+| `POST` | `/api/auth/register` | Cadastro de novo morador |
+| `POST` | `/api/auth/login` | Login e geração de token |
+| `POST` | `/api/auth/refresh` | Renovar access token via refresh token |
+| `POST` | `/api/auth/logout` | Invalidação de sessão |
 
----
+Rotas de auth têm rate limit de **10 requisições por minuto**.
 
-## 🧪 Testes
+### Usuário — `/api/users`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/api/users/me` | Dados do usuário autenticado |
+| `PUT` | `/api/users/me` | Atualizar perfil |
+| `PUT` | `/api/users/me/password` | Alterar senha |
+
+### Grupos — `/api/groups`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/groups` | Criar república |
+| `GET` | `/api/groups` | Listar repúblicas do usuário |
+| `GET` | `/api/groups/{id}` | Detalhes da república |
+| `PUT` | `/api/groups/{id}` | Atualizar república |
+| `GET` | `/api/groups/{id}/members` | Listar membros |
+| `POST` | `/api/groups/{id}/members` | Adicionar membro |
+| `PUT` | `/api/groups/{id}/members/{userId}` | Alterar cargo do membro |
+| `DELETE` | `/api/groups/{id}/members/{userId}` | Remover membro |
+| `POST` | `/api/groups/{id}/join` | Entrar na república via invite |
+| `POST` | `/api/groups/{id}/regenerate-invite` | Regenerar token de convite |
+| `GET` | `/api/groups/{id}/invite-token` | Obter token de convite |
+
+### Despesas — `/api/expenses`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/groups/{groupId}/expenses` | Criar despesa no grupo |
+| `GET` | `/api/groups/{groupId}/expenses` | Listar despesas do grupo |
+| `GET` | `/api/expenses/{id}` | Detalhes da despesa |
+| `PUT` | `/api/expenses/{id}` | Atualizar despesa |
+| `DELETE` | `/api/expenses/{id}` | Remover despesa |
+| `GET` | `/api/expenses/{id}/splits` | Listar rateios da despesa |
+| `PATCH` | `/api/expenses/splits/{id}/pay` | Marcar parcela como paga |
+| `GET` | `/api/expenses/{id}/installments` | Listar parcelas de despesa |
+
+### Categorias de Despesa — `/api/categories`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/categories` | Criar categoria |
+| `GET` | `/api/categories` | Listar categorias |
+| `PUT` | `/api/categories/{id}` | Atualizar categoria |
+| `DELETE` | `/api/categories/{id}` | Remover categoria |
+
+### Tarefas — `/api/tasks`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/groups/{groupId}/tasks` | Criar tarefa no grupo |
+| `GET` | `/api/groups/{groupId}/tasks` | Listar tarefas do grupo |
+| `GET` | `/api/tasks/{id}` | Detalhes da tarefa |
+| `PUT` | `/api/tasks/{id}` | Atualizar tarefa |
+| `DELETE` | `/api/tasks/{id}` | Remover tarefa |
+| `GET` | `/api/tasks/{id}/occurrences` | Listar ocorrências da tarefa |
+| `POST` | `/api/tasks/{taskId}/occurrences` | Criar ocorrência |
+| `PATCH` | `/api/tasks/occurrences/{id}/complete` | Completar ocorrência |
+| `PATCH` | `/api/tasks/occurrences/{id}/discard` | Descartar ocorrência |
+
+### Notificações — `/api/notifications`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/api/notifications` | Criar notificação |
+| `GET` | `/api/notifications` | Listar notificações |
+| `GET` | `/api/notifications/unread` | Listar não lidas |
+| `PATCH` | `/api/notifications/{id}/read` | Marcar como lida |
+| `PATCH` | `/api/notifications/read-all` | Marcar todas como lidas |
+| `DELETE` | `/api/notifications/{id}` | Remover notificação |
+
+## Middleware
+
+A cadeia de middleware é aplicada na seguinte ordem (de fora para dentro):
+
+1. **Recovery** — Captura panics e retorna 500
+2. **CORS** — Permite qualquer origem (`*`)
+3. **Logging** — Gera `request_id` (UUID) e loga método/path/status/duration
+4. **Rate Limit** — 100 req/min global; 10 req/min para rotas de auth
+5. **Auth (JWT)** — Valida token Bearer e injeta `user_id` no contexto
+
+## Testes
 
 ```bash
 # Rodar todos os testes
@@ -153,12 +223,25 @@ go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out
 ```
 
----
+Testes de integração usam **testcontainers** para subir PostgreSQL real em container.
 
-## 📄 Licença
+## Migrações
+
+```bash
+make migrate-up                  # Aplicar migrações
+make migrate-down N=1            # Reverter N migrações
+make migrate-create NAME=desc    # Criar nova migração
+make migrate-version             # Versão atual
+```
+
+## CI/CD
+
+O pipeline no GitHub Actions executa:
+
+1. **lint** — `golangci-lint`
+2. **test** — `go vet` + `go test -count=1 -timeout=300s`
+3. **build** (apenas na `main`) — compila binário, constrói imagem Docker e publica no GitHub Container Registry (`ghcr.io`)
+
+## Licença
 
 Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
-
----
-
-> Feito com ☕ e Go para facilitar a vida nas repúblicas universitárias.
