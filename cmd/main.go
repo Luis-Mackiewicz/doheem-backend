@@ -27,41 +27,13 @@ func main() {
 	defer cancel()
 
 	cfg := config.Load()
+	initLogger(cfg)
 
-	var slogHandler slog.Handler
-	opts := &slog.HandlerOptions{AddSource: cfg.AppEnv == "development"}
-	if cfg.LogFormat == "json" {
-		slogHandler = slog.NewJSONHandler(os.Stdout, opts)
-	} else {
-		slogHandler = slog.NewTextHandler(os.Stdout, opts)
-	}
-	slog.SetDefault(slog.New(slogHandler))
-
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
-	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
-	}
+	pool := initPostgres(ctx, cfg.DatabaseURL)
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
-		slog.Error("failed to ping database", "error", err)
-		os.Exit(1)
-	}
-	slog.Info("connected to database")
-
-	redisOpts, err := redis.ParseURL(cfg.RedisURL)
-	if err != nil {
-		slog.Error("failed to parse redis URL", "error", err)
-		os.Exit(1)
-	}
-	rdb := redis.NewClient(redisOpts)
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		slog.Error("failed to connect to redis", "error", err)
-		os.Exit(1)
-	}
+	rdb := initRedis(ctx, cfg.RedisURL)
 	defer rdb.Close()
-	slog.Info("connected to redis")
 
 	q := db.New(pool)
 
@@ -79,24 +51,69 @@ func main() {
 	userSvc := user.NewUserService(userRepo, refreshTokenRepo)
 	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo)
 	notificationSvc := notification.NewNotificationService(notificationRepo)
-
 	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo)
 	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
-
 	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, taskSvc, notificationSvc, rdb, pool)
 
+	runServer(ctx, router.Handler(), cfg.Port)
+}
+
+func initLogger(cfg config.Config) {
+	var slogHandler slog.Handler
+	opts := &slog.HandlerOptions{AddSource: cfg.AppEnv == "development"}
+
+	if cfg.LogFormat == "json" {
+		slogHandler = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		slogHandler = slog.NewTextHandler(os.Stdout, opts)
+	}
+	slog.SetDefault(slog.New(slogHandler))
+}
+
+func initPostgres(ctx context.Context, url string) *pgxpool.Pool {
+	pool, err := pgxpool.New(ctx, url)
+	if err != nil {
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+
+	if err := pool.Ping(ctx); err != nil {
+		slog.Error("failed to ping database", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("connected to database")
+	return pool
+}
+
+func initRedis(ctx context.Context, url string) *redis.Client {
+	rdb, err := redis.ParseURL(url)
+	if err != nil {
+		slog.Error("failed to parse redis URL", "error", err)
+		os.Exit(1)
+	}
+
+	client := redis.NewClient(rdb)
+	if err := client.Ping(ctx).Err(); err != nil {
+		slog.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("connected to redis")
+	return client
+}
+
+func runServer(ctx context.Context, handler http.Handler, port string) {
 	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      router.Handler(),
+		Addr:         ":" + port,
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {
-		slog.Info("Doheem server is running", "port", cfg.Port)
+		slog.Info("Doheem server is running", "port", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
