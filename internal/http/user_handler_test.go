@@ -100,7 +100,7 @@ func TestRegister_Success(t *testing.T) {
 	handler := NewUserHandler(svc, jwt)
 
 	repo.On("GetByEmail", mock.Anything, "test@example.com").Return(user.User{}, nil)
-	repo.On("GetByDocument", mock.Anything, "123.456.789-00").Return(user.User{}, nil)
+	repo.On("GetByDocument", mock.Anything, "52998224725").Return(user.User{}, nil)
 	repo.On("GetByPhone", mock.Anything, "11999999999").Return(user.User{}, nil)
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(p user.CreateUserParams) bool {
 		return p.Email == "test@example.com" && p.Name == "Test" && p.PasswordHash != ""
@@ -109,7 +109,7 @@ func TestRegister_Success(t *testing.T) {
 		return p.UserID == "u1" && p.TokenHash != ""
 	})).Return(nil)
 
-	body := `{"name":"Test","email":"test@example.com","password":"123456","phone":"11999999999","document":"123.456.789-00","birth_date":"1990-05-20","cep":"01001-000"}`
+	body := `{"name":"Test","email":"test@example.com","password":"123456","phone":"(11) 99999-9999","document":"529.982.247-25","birth_date":"1990-05-20","cep":"01001-000"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -156,10 +156,10 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	handler := NewUserHandler(svc, newTestJWT(t))
 
 	repo.On("GetByEmail", mock.Anything, "exists@example.com").Return(user.User{ID: "existing"}, nil)
-	repo.On("GetByDocument", mock.Anything, "123.456.789-00").Return(user.User{}, nil).Maybe()
+	repo.On("GetByDocument", mock.Anything, "52998224725").Return(user.User{}, nil).Maybe()
 	repo.On("GetByPhone", mock.Anything, "11999999999").Return(user.User{}, nil).Maybe()
 
-	body := `{"name":"Test","email":"exists@example.com","password":"123456","phone":"11999999999","document":"123.456.789-00","birth_date":"1990-05-20","cep":"01001-000"}`
+	body := `{"name":"Test","email":"exists@example.com","password":"123456","phone":"11999999999","document":"529.982.247-25","birth_date":"1990-05-20","cep":"01001-000"}`
 	r := httptest.NewRequest(http.MethodPost, "/api/auth/register", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

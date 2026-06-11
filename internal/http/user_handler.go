@@ -34,10 +34,10 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Name      string  `json:"name"       validate:"required"`
 		Email     string  `json:"email"      validate:"required,email"`
 		Password  string  `json:"password"   validate:"required,min=6"`
-		Phone     string  `json:"phone"      validate:"required"`
-		Document  string  `json:"document"   validate:"required"`
+		Phone     string  `json:"phone"      validate:"required,phone_br"`
+		Document  string  `json:"document"   validate:"required,document"`
 		BirthDate string  `json:"birth_date" validate:"required"`
-		Cep       string  `json:"cep"        validate:"required"`
+		Cep       string  `json:"cep"        validate:"required,cep_br"`
 		AvatarURL *string `json:"avatar_url,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
@@ -49,14 +49,17 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid birth_date format, use YYYY-MM-DD")
 		return
 	}
+	phone := onlyDigits(req.Phone)
+	document := onlyDigits(req.Document)
+	cep := onlyDigits(req.Cep)
 	created, err := h.svc.Register(r.Context(), user.CreateUserParams{
 		Name:         req.Name,
 		Email:        req.Email,
 		PasswordHash: req.Password,
-		Phone:        &req.Phone,
-		Document:     &req.Document,
+		Phone:        &phone,
+		Document:     &document,
 		BirthDate:    &birthDate,
-		Cep:          &req.Cep,
+		Cep:          &cep,
 		AvatarURL:    req.AvatarURL,
 	})
 	if err != nil {
@@ -171,10 +174,10 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name      *string `json:"name,omitempty"`
 		Email     *string `json:"email,omitempty"     validate:"omitempty,email"`
-		Phone     *string `json:"phone,omitempty"`
-		Document  *string `json:"document,omitempty"`
+		Phone     *string `json:"phone,omitempty"     validate:"omitempty,phone_br"`
+		Document  *string `json:"document,omitempty" validate:"omitempty,document"`
 		BirthDate *string `json:"birth_date,omitempty"`
-		Cep       *string `json:"cep,omitempty"`
+		Cep       *string `json:"cep,omitempty"     validate:"omitempty,cep_br"`
 		AvatarURL *string `json:"avatar_url,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
@@ -190,13 +193,30 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		}
 		birthDate = &parsed
 	}
+
+	var phone *string
+	if req.Phone != nil {
+		v := onlyDigits(*req.Phone)
+		phone = &v
+	}
+	var document *string
+	if req.Document != nil {
+		v := onlyDigits(*req.Document)
+		document = &v
+	}
+	var cep *string
+	if req.Cep != nil {
+		v := onlyDigits(*req.Cep)
+		cep = &v
+	}
+
 	updated, err := h.svc.Update(r.Context(), userID, user.UpdateUserParams{
 		Name:      req.Name,
 		Email:     req.Email,
-		Phone:     req.Phone,
-		Document:  req.Document,
+		Phone:     phone,
+		Document:  document,
 		BirthDate: birthDate,
-		Cep:       req.Cep,
+		Cep:       cep,
 		AvatarURL: req.AvatarURL,
 	})
 	if err != nil {
@@ -360,10 +380,10 @@ func toUserResponse(u user.User) userResponse {
 		ID:        u.ID,
 		Name:      u.Name,
 		Email:     u.Email,
-		Phone:     strVal(u.Phone),
-		Document:  strVal(u.Document),
+		Phone:     maskPhone(strVal(u.Phone)),
+		Document:  maskDocument(strVal(u.Document)),
 		BirthDate: birthDate,
-		Cep:       strVal(u.Cep),
+		Cep:       maskCEP(strVal(u.Cep)),
 		AvatarURL: u.AvatarURL,
 		CreatedAt: u.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: u.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
