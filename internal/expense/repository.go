@@ -25,12 +25,24 @@ func (r *ExpenseRepo) GetByID(ctx context.Context, id string) (Expense, error) {
 	return toExpense(e), nil
 }
 
-func (r *ExpenseRepo) ListByGroup(ctx context.Context, groupID string) ([]Expense, error) {
-	expenses, err := r.q.ListExpensesByGroup(ctx, db.UUIDFromString(groupID))
+func (r *ExpenseRepo) ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error) {
+	expenses, err := r.q.ListExpensesByGroup(ctx, db.ListExpensesByGroupParams{
+		GroupID: db.UUIDFromString(groupID),
+		Limit:   limit,
+		Offset:  offset,
+	})
 	if err != nil {
 		return nil, err
 	}
 	return toExpenses(expenses), nil
+}
+
+func (r *ExpenseRepo) CountByGroup(ctx context.Context, groupID string) (int, error) {
+	count, err := r.q.CountExpensesByGroup(ctx, db.UUIDFromString(groupID))
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
 
 func (r *ExpenseRepo) ListByUser(ctx context.Context, userID string) ([]Expense, error) {

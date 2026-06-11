@@ -11,6 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countExpensesByGroup = `-- name: CountExpensesByGroup :one
+SELECT COUNT(*) FROM expenses
+WHERE group_id = $1
+`
+
+func (q *Queries) CountExpensesByGroup(ctx context.Context, groupID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countExpensesByGroup, groupID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createExpense = `-- name: CreateExpense :one
 INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -184,10 +196,17 @@ const listExpensesByGroup = `-- name: ListExpensesByGroup :many
 SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
 WHERE group_id = $1
 ORDER BY competence_date DESC, created_at DESC
+LIMIT $2 OFFSET $3
 `
 
-func (q *Queries) ListExpensesByGroup(ctx context.Context, groupID pgtype.UUID) ([]Expense, error) {
-	rows, err := q.db.Query(ctx, listExpensesByGroup, groupID)
+type ListExpensesByGroupParams struct {
+	GroupID pgtype.UUID
+	Limit   int32
+	Offset  int32
+}
+
+func (q *Queries) ListExpensesByGroup(ctx context.Context, arg ListExpensesByGroupParams) ([]Expense, error) {
+	rows, err := q.db.Query(ctx, listExpensesByGroup, arg.GroupID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

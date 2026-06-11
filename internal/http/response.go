@@ -14,8 +14,11 @@ type paginatedResponse struct {
 func parsePagination(r *http.Request) (limit, offset int) {
 	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ = strconv.Atoi(r.URL.Query().Get("offset"))
-	if limit <= 0 || limit > 100 {
-		limit = 20
+	if limit <= 0 {
+		limit = 200
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 	if offset < 0 {
 		offset = 0

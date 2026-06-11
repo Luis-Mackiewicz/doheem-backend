@@ -81,6 +81,10 @@ func (r *ExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string) error {
 	return r.q.MarkExpenseSplitAsPaid(ctx, db.UUIDFromString(id))
 }
 
+func (r *ExpenseSplitRepo) HasPaidSplits(ctx context.Context, expenseID string) (bool, error) {
+	return r.q.HasExpensePaidSplits(ctx, db.UUIDFromString(expenseID))
+}
+
 func (r *ExpenseSplitRepo) DeleteByExpense(ctx context.Context, expenseID string) error {
 	return r.q.DeleteExpenseSplitsByExpense(ctx, db.UUIDFromString(expenseID))
 }

@@ -114,8 +114,12 @@ func (s *ExpenseService) GetByID(ctx context.Context, id string) (Expense, error
 	return expense, nil
 }
 
-func (s *ExpenseService) ListByGroup(ctx context.Context, groupID string) ([]Expense, error) {
-	return s.expenseRepo.ListByGroup(ctx, groupID)
+func (s *ExpenseService) ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error) {
+	return s.expenseRepo.ListByGroup(ctx, groupID, limit, offset)
+}
+
+func (s *ExpenseService) CountByGroup(ctx context.Context, groupID string) (int, error) {
+	return s.expenseRepo.CountByGroup(ctx, groupID)
 }
 
 func (s *ExpenseService) ListByUser(ctx context.Context, userID string) ([]Expense, error) {
@@ -159,13 +163,9 @@ func (s *ExpenseService) Delete(ctx context.Context, id, userID string) error {
 		}
 	}
 
-	splits, err := s.expenseSplitRepo.ListByExpense(ctx, id)
-	if err == nil {
-		for _, split := range splits {
-			if split.IsPaid {
-				return ErrCannotDeleteWithPaidSplits
-			}
-		}
+	hasPaid, err := s.expenseSplitRepo.HasPaidSplits(ctx, id)
+	if err == nil && hasPaid {
+		return ErrCannotDeleteWithPaidSplits
 	}
 
 	return s.expenseRepo.Delete(ctx, id)

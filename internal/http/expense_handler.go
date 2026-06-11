@@ -92,14 +92,21 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
-	expenses, err := h.svc.ListByGroup(r.Context(), groupID)
+	limit, offset := parsePagination(r)
+
+	expenses, err := h.svc.ListByGroup(r.Context(), groupID, int32(limit), int32(offset))
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
-	limit, offset := parsePagination(r)
-	items, total := paginate(toExpenseResponses(expenses), limit, offset)
-	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+
+	total, err := h.svc.CountByGroup(r.Context(), groupID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: toExpenseResponses(expenses), Total: total})
 }
 
 func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {

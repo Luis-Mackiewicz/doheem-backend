@@ -35,6 +35,12 @@ WHERE id = $1;
 DELETE FROM expense_splits
 WHERE expense_id = $1;
 
+-- name: HasExpensePaidSplits :one
+SELECT EXISTS(
+  SELECT 1 FROM expense_splits
+  WHERE expense_id = $1 AND is_paid = true
+);
+
 -- name: GetUserBalanceInGroup :one
 SELECT COALESCE(SUM(es.amount), 0)::NUMERIC(12,2) AS total_owed,
        COALESCE(SUM(CASE WHEN es.is_paid THEN es.amount ELSE 0 END), 0)::NUMERIC(12,2) AS total_paid

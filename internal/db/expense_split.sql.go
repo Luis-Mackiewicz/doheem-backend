@@ -99,6 +99,20 @@ func (q *Queries) GetUserBalanceInGroup(ctx context.Context, arg GetUserBalanceI
 	return i, err
 }
 
+const hasExpensePaidSplits = `-- name: HasExpensePaidSplits :one
+SELECT EXISTS(
+  SELECT 1 FROM expense_splits
+  WHERE expense_id = $1 AND is_paid = true
+)
+`
+
+func (q *Queries) HasExpensePaidSplits(ctx context.Context, expenseID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hasExpensePaidSplits, expenseID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listExpenseSplitsByExpense = `-- name: ListExpenseSplitsByExpense :many
 SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, u.name AS user_name, u.email AS user_email
 FROM expense_splits es

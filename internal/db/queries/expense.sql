@@ -5,7 +5,12 @@ WHERE id = $1;
 -- name: ListExpensesByGroup :many
 SELECT * FROM expenses
 WHERE group_id = $1
-ORDER BY competence_date DESC, created_at DESC;
+ORDER BY competence_date DESC, created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountExpensesByGroup :one
+SELECT COUNT(*) FROM expenses
+WHERE group_id = $1;
 
 -- name: ListExpensesByUser :many
 SELECT e.* FROM expenses e

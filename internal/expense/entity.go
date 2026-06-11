@@ -82,7 +82,8 @@ type UserBalance struct {
 
 type ExpenseRepository interface {
 	GetByID(ctx context.Context, id string) (Expense, error)
-	ListByGroup(ctx context.Context, groupID string) ([]Expense, error)
+	ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error)
+	CountByGroup(ctx context.Context, groupID string) (int, error)
 	ListByUser(ctx context.Context, userID string) ([]Expense, error)
 	ListByCategory(ctx context.Context, categoryID string) ([]Expense, error)
 	ListByParent(ctx context.Context, parentID string) ([]Expense, error)
@@ -108,6 +109,7 @@ type ExpenseSplitRepository interface {
 	Create(ctx context.Context, expenseID, userID string, amount float64) (ExpenseSplit, error)
 	CreateMany(ctx context.Context, expenseID string, splits []CreateExpenseSplitParams) (int64, error)
 	MarkAsPaid(ctx context.Context, id string) error
+	HasPaidSplits(ctx context.Context, expenseID string) (bool, error)
 	DeleteByExpense(ctx context.Context, expenseID string) error
 	GetUserBalance(ctx context.Context, userID, groupID string) (UserBalance, error)
 }
