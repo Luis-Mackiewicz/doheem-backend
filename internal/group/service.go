@@ -60,6 +60,13 @@ func (s *GroupService) Update(ctx context.Context, id string, params UpdateGroup
 }
 
 func (s *GroupService) AddMember(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
+	count, err := s.groupMemberRepo.Count(ctx, groupID)
+	if err != nil {
+		return GroupMember{}, err
+	}
+	if count >= 30 {
+		return GroupMember{}, ErrGroupFull
+	}
 	return s.groupMemberRepo.Create(ctx, groupID, userID, isAdmin)
 }
 
@@ -98,6 +105,14 @@ func (s *GroupService) Join(ctx context.Context, groupID, userID string) error {
 
 	if group.InviteToken == nil {
 		return fmt.Errorf("group has no invite token")
+	}
+
+	count, err := s.groupMemberRepo.Count(ctx, groupID)
+	if err != nil {
+		return err
+	}
+	if count >= 30 {
+		return ErrGroupFull
 	}
 
 	_, err = s.groupMemberRepo.Create(ctx, groupID, userID, false)

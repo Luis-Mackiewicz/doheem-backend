@@ -66,4 +66,5 @@ var (
 	ErrMemberNotFound      = errors.New("member not found")
 	ErrMemberAlreadyExists = errors.New("member already exists")
 	ErrCannotRemoveOwner   = errors.New("cannot remove the group owner")
+	ErrGroupFull           = errors.New("group has reached the maximum of 30 members")
 )

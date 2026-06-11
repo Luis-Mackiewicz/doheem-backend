@@ -47,6 +47,7 @@ func toHTTPStatus(err error) int {
 		errors.Is(err, user.ErrDocumentAlreadyExists),
 		errors.Is(err, user.ErrPhoneAlreadyExists),
 		errors.Is(err, group.ErrMemberAlreadyExists),
+		errors.Is(err, group.ErrGroupFull),
 		errors.Is(err, expense.ErrCannotDeleteWithPaidSplits):
 		return http.StatusConflict
 
