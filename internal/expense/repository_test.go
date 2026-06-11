@@ -67,7 +67,7 @@ func TestExpenseRepo_ListByGroup(t *testing.T) {
 		Installments: 1,
 	})
 
-	expenses, err := expenseRepo.ListByGroup(ctx, group.ID)
+	expenses, err := expenseRepo.ListByGroup(ctx, group.ID, 10, 0)
 	require.NoError(t, err)
 	assert.Len(t, expenses, 2)
 }

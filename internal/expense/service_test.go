@@ -20,9 +20,14 @@ func (m *mockExpenseRepo) GetByID(ctx context.Context, id string) (Expense, erro
 	return args.Get(0).(Expense), args.Error(1)
 }
 
-func (m *mockExpenseRepo) ListByGroup(ctx context.Context, groupID string) ([]Expense, error) {
-	args := m.Called(ctx, groupID)
+func (m *mockExpenseRepo) ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error) {
+	args := m.Called(ctx, groupID, limit, offset)
 	return args.Get(0).([]Expense), args.Error(1)
+}
+
+func (m *mockExpenseRepo) CountByGroup(ctx context.Context, groupID string) (int, error) {
+	args := m.Called(ctx, groupID)
+	return args.Get(0).(int), args.Error(1)
 }
 
 func (m *mockExpenseRepo) ListByUser(ctx context.Context, userID string) ([]Expense, error) {
@@ -102,6 +107,11 @@ func (m *mockExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string) error 
 func (m *mockExpenseSplitRepo) DeleteByExpense(ctx context.Context, expenseID string) error {
 	args := m.Called(ctx, expenseID)
 	return args.Error(0)
+}
+
+func (m *mockExpenseSplitRepo) HasPaidSplits(ctx context.Context, expenseID string) (bool, error) {
+	args := m.Called(ctx, expenseID)
+	return args.Get(0).(bool), args.Error(1)
 }
 
 func (m *mockExpenseSplitRepo) GetUserBalance(ctx context.Context, userID, groupID string) (UserBalance, error) {
