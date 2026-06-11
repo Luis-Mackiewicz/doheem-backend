@@ -182,11 +182,11 @@ RETURNING id, group_id, title, description, assigned_to, created_by, status, pos
 
 type UpdateTaskParams struct {
 	ID          pgtype.UUID
-	Title       string
-	Description string
+	Title       pgtype.Text
+	Description pgtype.Text
 	AssignedTo  pgtype.UUID
-	Status      string
-	Position    int32
+	Status      pgtype.Text
+	Position    pgtype.Int2
 	DueDate     pgtype.Date
 }
 

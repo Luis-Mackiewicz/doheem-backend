@@ -38,14 +38,16 @@ func toHTTPStatus(err error) int {
 		return http.StatusUnauthorized
 
 	case
-		errors.Is(err, group.ErrCannotRemoveOwner):
+		errors.Is(err, group.ErrCannotRemoveOwner),
+		errors.Is(err, expense.ErrForbidden):
 		return http.StatusForbidden
 
 	case
 		errors.Is(err, user.ErrEmailAlreadyExists),
 		errors.Is(err, user.ErrDocumentAlreadyExists),
 		errors.Is(err, user.ErrPhoneAlreadyExists),
-		errors.Is(err, group.ErrMemberAlreadyExists):
+		errors.Is(err, group.ErrMemberAlreadyExists),
+		errors.Is(err, expense.ErrCannotDeleteWithPaidSplits):
 		return http.StatusConflict
 
 	case

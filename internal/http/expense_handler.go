@@ -149,6 +149,7 @@ func (h *ExpenseHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
 		Description    *string  `json:"description,omitempty"`
 		Amount         *float64 `json:"amount,omitempty"         validate:"omitempty,gt=0"`
@@ -181,7 +182,7 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	expense, err := h.svc.Update(r.Context(), id, params)
+	expense, err := h.svc.Update(r.Context(), id, params, userID)
 	if err != nil {
 		handleError(w, r, err)
 		return
@@ -191,7 +192,8 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := h.svc.Delete(r.Context(), id); err != nil {
+	userID := r.Context().Value(UserIDKey).(string)
+	if err := h.svc.Delete(r.Context(), id, userID); err != nil {
 		handleError(w, r, err)
 		return
 	}

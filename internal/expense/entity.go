@@ -118,7 +118,9 @@ type CreateExpenseSplitParams struct {
 }
 
 var (
-	ErrExpenseNotFound   = errors.New("expense not found")
-	ErrInvalidSplitTotal = errors.New("split amounts must equal total amount")
-	ErrCategoryNotFound  = errors.New("category not found")
+	ErrExpenseNotFound          = errors.New("expense not found")
+	ErrInvalidSplitTotal        = errors.New("split amounts must equal total amount")
+	ErrCategoryNotFound         = errors.New("category not found")
+	ErrForbidden                = errors.New("forbidden")
+	ErrCannotDeleteWithPaidSplits = errors.New("cannot delete expense with paid splits")
 )

@@ -22,6 +22,9 @@ func NewRateLimiter(rdb *redis.Client, limit int, interval time.Duration) *RateL
 }
 
 func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, time.Duration, error) {
+	ctx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer cancel()
+
 	now := time.Now().UnixNano()
 	cutoff := now - rl.interval.Nanoseconds()
 	redisKey := "ratelimit:" + key
@@ -34,7 +37,7 @@ func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, time.Durati
 
 	_, err := pipe.Exec(ctx)
 	if err != nil {
-		return false, 0, fmt.Errorf("rate limiter: %w", err)
+		return true, 0, nil
 	}
 
 	count, err := countCmd.Result()

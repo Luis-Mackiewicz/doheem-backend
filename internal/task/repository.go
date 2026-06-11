@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"doheem-backend/internal/db"
-
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"doheem-backend/internal/db"
 )
 
 type TaskRepo struct {
@@ -62,11 +62,11 @@ func (r *TaskRepo) Create(ctx context.Context, params CreateTaskParams) (Task, e
 func (r *TaskRepo) Update(ctx context.Context, id string, params UpdateTaskParams) (Task, error) {
 	t, err := r.q.UpdateTask(ctx, db.UpdateTaskParams{
 		ID:          db.UUIDFromString(id),
-		Title:       deptrStr(params.Title),
-		Description: deptrStr(params.Description),
+		Title:       deptrStrToText(params.Title),
+		Description: deptrStrToText(params.Description),
 		AssignedTo:  db.UUIDFromStringPtr(params.AssignedTo),
-		Status:      deptrStr(params.Status),
-		Position:    deptrInt32(params.Position),
+		Status:      deptrStrToText(params.Status),
+		Position:    deptrInt32ToInt2(params.Position),
 		DueDate:     deptrDate(params.DueDate),
 	})
 	if err != nil {
@@ -103,18 +103,18 @@ func toTasks(tasks []db.Task) []Task {
 	return result
 }
 
-func deptrStr(s *string) string {
-	if s != nil {
-		return *s
+func deptrStrToText(s *string) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{Valid: false}
 	}
-	return ""
+	return pgtype.Text{String: *s, Valid: true}
 }
 
-func deptrInt32(i *int32) int32 {
-	if i != nil {
-		return *i
+func deptrInt32ToInt2(i *int32) pgtype.Int2 {
+	if i == nil {
+		return pgtype.Int2{Valid: false}
 	}
-	return 0
+	return pgtype.Int2{Int16: int16(*i), Valid: true}
 }
 
 func deptrDate(t *time.Time) pgtype.Date {

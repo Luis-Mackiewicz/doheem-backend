@@ -130,11 +130,44 @@ func (s *ExpenseService) ListByParent(ctx context.Context, parentID string) ([]E
 	return s.expenseRepo.ListByParent(ctx, parentID)
 }
 
-func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExpenseParams) (Expense, error) {
+func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExpenseParams, userID string) (Expense, error) {
+	expense, err := s.expenseRepo.GetByID(ctx, id)
+	if err != nil {
+		return Expense{}, ErrExpenseNotFound
+	}
+
+	if expense.PaidBy != userID {
+		member, err := s.memberRepo.Get(ctx, expense.GroupID, userID)
+		if err != nil || !member.IsAdmin {
+			return Expense{}, ErrForbidden
+		}
+	}
+
 	return s.expenseRepo.Update(ctx, id, params)
 }
 
-func (s *ExpenseService) Delete(ctx context.Context, id string) error {
+func (s *ExpenseService) Delete(ctx context.Context, id, userID string) error {
+	expense, err := s.expenseRepo.GetByID(ctx, id)
+	if err != nil {
+		return ErrExpenseNotFound
+	}
+
+	if expense.PaidBy != userID {
+		member, err := s.memberRepo.Get(ctx, expense.GroupID, userID)
+		if err != nil || !member.IsAdmin {
+			return ErrForbidden
+		}
+	}
+
+	splits, err := s.expenseSplitRepo.ListByExpense(ctx, id)
+	if err == nil {
+		for _, split := range splits {
+			if split.IsPaid {
+				return ErrCannotDeleteWithPaidSplits
+			}
+		}
+	}
+
 	return s.expenseRepo.Delete(ctx, id)
 }
 
