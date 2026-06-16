@@ -185,6 +185,18 @@ func (m *mockNotifRepo) Delete(ctx context.Context, id, userID string) error {
 	return nil
 }
 
+func (m *mockNotifRepo) ListByUserSearch(ctx context.Context, userID, search string, limit, offset int32) ([]notification.Notification, error) {
+	return nil, nil
+}
+
+func (m *mockNotifRepo) CountByUser(ctx context.Context, userID string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockNotifRepo) DeleteAll(ctx context.Context, userID string) error {
+	return nil
+}
+
 type mockGroupMemberRepo struct {
 	mock.Mock
 }

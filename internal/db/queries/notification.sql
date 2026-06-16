@@ -36,3 +36,19 @@ WHERE user_id = $1 AND is_read = false;
 -- name: DeleteNotification :exec
 DELETE FROM notifications
 WHERE id = $1 AND user_id = $2;
+
+-- name: DeleteAllNotificationsByUser :exec
+DELETE FROM notifications
+WHERE user_id = $1;
+
+-- name: CountNotificationsByUser :one
+SELECT COUNT(*) FROM notifications
+WHERE user_id = $1;
+
+-- name: ListNotificationsByUserSearch :many
+SELECT * FROM notifications
+WHERE user_id = $1
+  AND (title ILIKE '%' || $2 || '%' OR message ILIKE '%' || $2 || '%' OR $2 = '')
+ORDER BY created_at DESC
+LIMIT $3
+OFFSET $4;

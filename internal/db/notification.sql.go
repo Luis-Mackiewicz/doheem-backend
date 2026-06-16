@@ -199,3 +199,75 @@ func (q *Queries) MarkNotificationAsRead(ctx context.Context, arg MarkNotificati
 	_, err := q.db.Exec(ctx, markNotificationAsRead, arg.ID, arg.UserID)
 	return err
 }
+
+const countNotificationsByUser = `-- name: CountNotificationsByUser :one
+SELECT COUNT(*) FROM notifications
+WHERE user_id = $1
+`
+
+func (q *Queries) CountNotificationsByUser(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countNotificationsByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteAllNotificationsByUser = `-- name: DeleteAllNotificationsByUser :exec
+DELETE FROM notifications
+WHERE user_id = $1
+`
+
+func (q *Queries) DeleteAllNotificationsByUser(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteAllNotificationsByUser, userID)
+	return err
+}
+
+const listNotificationsByUserSearch = `-- name: ListNotificationsByUserSearch :many
+SELECT id, user_id, type, title, message, is_read, related_id, created_at FROM notifications
+WHERE user_id = $1
+  AND (title ILIKE '%' || $2 || '%' OR message ILIKE '%' || $2 || '%' OR $2 = '')
+ORDER BY created_at DESC
+LIMIT $3
+OFFSET $4
+`
+
+type ListNotificationsByUserSearchParams struct {
+	UserID  pgtype.UUID
+	Column2 pgtype.Text
+	Limit   int32
+	Offset  int32
+}
+
+func (q *Queries) ListNotificationsByUserSearch(ctx context.Context, arg ListNotificationsByUserSearchParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, listNotificationsByUserSearch,
+		arg.UserID,
+		arg.Column2,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Notification
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Type,
+			&i.Title,
+			&i.Message,
+			&i.IsRead,
+			&i.RelatedID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

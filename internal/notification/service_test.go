@@ -52,6 +52,21 @@ func (m *mockNotificationRepo) Delete(ctx context.Context, id, userID string) er
 	return args.Error(0)
 }
 
+func (m *mockNotificationRepo) ListByUserSearch(ctx context.Context, userID, search string, limit, offset int32) ([]Notification, error) {
+	args := m.Called(ctx, userID, search, limit, offset)
+	return args.Get(0).([]Notification), args.Error(1)
+}
+
+func (m *mockNotificationRepo) CountByUser(ctx context.Context, userID string) (int64, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockNotificationRepo) DeleteAll(ctx context.Context, userID string) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
 func TestNotificationService_GetByID_NotFound(t *testing.T) {
 	mockRepo := new(mockNotificationRepo)
 	svc := NewNotificationService(mockRepo)

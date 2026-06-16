@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"doheem-backend/internal/db"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type NotificationRepo struct {
@@ -27,6 +28,19 @@ func (r *NotificationRepo) ListByUser(ctx context.Context, userID string, limit,
 		UserID: db.UUIDFromString(userID),
 		Limit:  limit,
 		Offset: offset,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toNotifications(notifications), nil
+}
+
+func (r *NotificationRepo) ListByUserSearch(ctx context.Context, userID, search string, limit, offset int32) ([]Notification, error) {
+	notifications, err := r.q.ListNotificationsByUserSearch(ctx, db.ListNotificationsByUserSearchParams{
+		UserID:  db.UUIDFromString(userID),
+		Column2: pgtype.Text{String: search, Valid: true},
+		Limit:   limit,
+		Offset:  offset,
 	})
 	if err != nil {
 		return nil, err
@@ -71,11 +85,19 @@ func (r *NotificationRepo) CountUnread(ctx context.Context, userID string) (int6
 	return r.q.CountUnreadNotifications(ctx, db.UUIDFromString(userID))
 }
 
+func (r *NotificationRepo) CountByUser(ctx context.Context, userID string) (int64, error) {
+	return r.q.CountNotificationsByUser(ctx, db.UUIDFromString(userID))
+}
+
 func (r *NotificationRepo) Delete(ctx context.Context, id, userID string) error {
 	return r.q.DeleteNotification(ctx, db.DeleteNotificationParams{
 		ID:     db.UUIDFromString(id),
 		UserID: db.UUIDFromString(userID),
 	})
+}
+
+func (r *NotificationRepo) DeleteAll(ctx context.Context, userID string) error {
+	return r.q.DeleteAllNotificationsByUser(ctx, db.UUIDFromString(userID))
 }
 
 func toNotification(n db.Notification) Notification {

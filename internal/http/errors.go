@@ -39,7 +39,8 @@ func toHTTPStatus(err error) int {
 
 	case
 		errors.Is(err, group.ErrCannotRemoveOwner),
-		errors.Is(err, expense.ErrForbidden):
+		errors.Is(err, expense.ErrForbidden),
+		errors.Is(err, task.ErrForbidden):
 		return http.StatusForbidden
 
 	case
@@ -53,7 +54,10 @@ func toHTTPStatus(err error) int {
 
 	case
 		errors.Is(err, expense.ErrInvalidSplitTotal),
-		errors.Is(err, task.ErrInvalidDueDate):
+		errors.Is(err, task.ErrInvalidDueDate),
+		errors.Is(err, notification.ErrReminderLimitExceeded),
+		errors.Is(err, notification.ErrReminderTooSoon),
+		errors.Is(err, task.ErrInvalidStatusTransition):
 		return http.StatusBadRequest
 
 	default:
