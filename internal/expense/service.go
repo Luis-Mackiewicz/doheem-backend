@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"doheem-backend/internal/group"
@@ -34,12 +35,15 @@ func NewExpenseService(
 	}
 }
 
-type CreateExpenseWithSplitsParams struct {
-	Expense CreateExpenseParams
-	Splits  []CreateExpenseSplitParams
-}
-
 func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSplitsParams) (Expense, error) {
+	if len(params.Splits) == 0 && params.CalcParams.SplitMode != "" {
+		calculated, err := s.CalculateSplits(ctx, params.CalcParams)
+		if err != nil {
+			return Expense{}, err
+		}
+		params.Splits = calculated
+	}
+
 	var totalFromSplits float64
 	for _, sp := range params.Splits {
 		totalFromSplits += sp.Amount
@@ -142,6 +146,48 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 	}
 
 	return expense, nil
+}
+
+func splitEqually(total float64, userIDs []string) []CreateExpenseSplitParams {
+	count := len(userIDs)
+	if count == 0 {
+		return nil
+	}
+	base := math.Floor(total*100/float64(count)) / 100
+	remainder := math.Round((total-base*float64(count))*100) / 100
+	splits := make([]CreateExpenseSplitParams, count)
+	for i, uid := range userIDs {
+		v := base
+		if i == 0 {
+			v = math.Round((base+remainder)*100) / 100
+		}
+		splits[i] = CreateExpenseSplitParams{UserID: uid, Amount: v}
+	}
+	return splits
+}
+
+func (s *ExpenseService) CalculateSplits(ctx context.Context, params CalculateSplitsParams) ([]CreateExpenseSplitParams, error) {
+	switch params.SplitMode {
+	case "equal":
+		members, err := s.memberRepo.ListByGroup(ctx, params.GroupID)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]string, len(members))
+		for i, m := range members {
+			ids[i] = m.UserID
+		}
+		return splitEqually(params.Amount, ids), nil
+
+	case "some":
+		if len(params.SelectedUserIDs) < 2 {
+			return nil, ErrNoSelectedMembers
+		}
+		return splitEqually(params.Amount, params.SelectedUserIDs), nil
+
+	default:
+		return nil, ErrInvalidSplitMode
+	}
 }
 
 func (s *ExpenseService) GetByID(ctx context.Context, id string) (Expense, error) {

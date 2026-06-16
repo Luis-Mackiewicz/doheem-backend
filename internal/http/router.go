@@ -38,7 +38,7 @@ func NewRouter(
 	return &Router{
 		jwt:          jwt,
 		user:         NewUserHandler(userSvc, jwt),
-		group:        NewGroupHandler(groupSvc),
+		group:        NewGroupHandler(groupSvc, rdb),
 		expense:      NewExpenseHandler(expenseSvc),
 		task:         NewTaskHandler(taskSvc),
 		notification: NewNotificationHandler(notificationSvc),

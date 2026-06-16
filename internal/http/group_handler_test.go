@@ -71,7 +71,7 @@ func TestGroupCreate_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	memberRepo := new(mockGroupMemberRepo)
 	svc := group.NewGroupService(groupRepo, memberRepo)
-	handler := NewGroupHandler(svc)
+	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("Create", mock.Anything, mock.Anything).Return(group.Group{ID: "g1", Name: "My Group"}, nil)
 	memberRepo.On("Create", mock.Anything, "g1", "test-user-id", true).Return(group.GroupMember{}, nil)
@@ -93,7 +93,7 @@ func TestGroupCreate_Success(t *testing.T) {
 }
 
 func TestGroupCreate_ValidationError(t *testing.T) {
-	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo)))
+	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo)), nil)
 
 	body := `{"name":""}`
 	r := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
@@ -111,7 +111,7 @@ func TestGroupCreate_ValidationError(t *testing.T) {
 func TestGroupGetByID_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
-	handler := NewGroupHandler(svc)
+	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("GetByID", mock.Anything, "g1").Return(group.Group{ID: "g1", Name: "My Group"}, nil)
 
@@ -131,7 +131,7 @@ func TestGroupGetByID_Success(t *testing.T) {
 func TestGroupGetByID_NotFound(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
-	handler := NewGroupHandler(svc)
+	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("GetByID", mock.Anything, "999").Return(group.Group{}, assert.AnError)
 
@@ -151,7 +151,7 @@ func TestGroupGetByID_NotFound(t *testing.T) {
 func TestGroupList_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
-	handler := NewGroupHandler(svc)
+	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("ListByUserID", mock.Anything, "test-user-id").Return([]group.Group{
 		{ID: "g1", Name: "Group 1"},

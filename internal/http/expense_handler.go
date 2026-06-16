@@ -19,17 +19,18 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 
 	var req struct {
-		Description    string    `json:"description"      validate:"required"`
-		Amount         float64   `json:"amount"            validate:"required,gt=0"`
-		CategoryID     string    `json:"category_id"       validate:"required"`
-		CompetenceDate string    `json:"competence_date"   validate:"required"`
-		DueDate        string    `json:"due_date"          validate:"required"`
-		PaidBy         string    `json:"paid_by"           validate:"required"`
-		SplitMode      string    `json:"split_mode"        validate:"required,oneof=equal custom"`
-		Installments   int32     `json:"installments"`
-		FirstDueDate   *string   `json:"first_due_date,omitempty"`
-		IsFixed        bool      `json:"is_fixed"`
-		Splits         []struct {
+		Description     string    `json:"description"         validate:"required"`
+		Amount          float64   `json:"amount"               validate:"required,gt=0"`
+		CategoryID      string    `json:"category_id"          validate:"required"`
+		CompetenceDate  string    `json:"competence_date"      validate:"required"`
+		DueDate         string    `json:"due_date"             validate:"required"`
+		PaidBy          string    `json:"paid_by"              validate:"required"`
+		SplitMode       string    `json:"split_mode"           validate:"required,oneof=equal some custom"`
+		Installments    int32     `json:"installments"`
+		FirstDueDate    *string   `json:"first_due_date,omitempty"`
+		IsFixed         bool      `json:"is_fixed"`
+		SelectedUserIDs []string  `json:"selected_user_ids,omitempty"`
+		Splits          []struct {
 			UserID string  `json:"user_id" validate:"required"`
 			Amount float64 `json:"amount"   validate:"required,gt=0"`
 		} `json:"splits,omitempty"`
@@ -82,6 +83,12 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 			IsFixed:        req.IsFixed,
 		},
 		Splits: splits,
+		CalcParams: expense.CalculateSplitsParams{
+			GroupID:         groupID,
+			Amount:          req.Amount,
+			SplitMode:       req.SplitMode,
+			SelectedUserIDs: req.SelectedUserIDs,
+		},
 	})
 	if err != nil {
 		handleError(w, r, err)

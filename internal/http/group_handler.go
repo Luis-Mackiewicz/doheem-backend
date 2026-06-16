@@ -1,17 +1,24 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"doheem-backend/internal/group"
+
+	"github.com/redis/go-redis/v9"
 )
+
+const membersCacheTTL = 30 * time.Second
 
 type GroupHandler struct {
 	svc *group.GroupService
+	rdb *redis.Client
 }
 
-func NewGroupHandler(svc *group.GroupService) *GroupHandler {
-	return &GroupHandler{svc: svc}
+func NewGroupHandler(svc *group.GroupService, rdb *redis.Client) *GroupHandler {
+	return &GroupHandler{svc: svc, rdb: rdb}
 }
 
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -47,11 +54,35 @@ func (h *GroupHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("id")
+	userID := r.Context().Value(UserIDKey).(string)
+
+	if _, err := h.svc.GetMember(r.Context(), groupID, userID); err != nil {
+		respondError(w, http.StatusForbidden, "you are not a member of this group")
+		return
+	}
+
+	cacheKey := "group_members:" + groupID
+	cached, err := h.rdb.Get(r.Context(), cacheKey).Bytes()
+	if err == nil {
+		var members []group.GroupMemberWithUser
+		if json.Unmarshal(cached, &members) == nil {
+			limit, offset := parsePagination(r)
+			items, total := paginate(toGroupMemberResponses(members), limit, offset)
+			respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
+			return
+		}
+	}
+
 	members, err := h.svc.ListMembers(r.Context(), groupID)
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
+
+	if data, err := json.Marshal(members); err == nil {
+		h.rdb.Set(r.Context(), cacheKey, data, membersCacheTTL)
+	}
+
 	limit, offset := parsePagination(r)
 	items, total := paginate(toGroupMemberResponses(members), limit, offset)
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})

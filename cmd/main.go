@@ -52,7 +52,7 @@ func main() {
 	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo)
 	notificationSvc := notification.NewNotificationService(notificationRepo)
 	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo, notificationRepo)
-	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo)
+	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo, groupMemberRepo, notificationRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, taskSvc, notificationSvc, rdb, pool)
@@ -73,7 +73,14 @@ func initLogger(cfg config.Config) {
 }
 
 func initPostgres(ctx context.Context, url string) *pgxpool.Pool {
-	pool, err := pgxpool.New(ctx, url)
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		slog.Error("failed to parse database config", "error", err)
+		os.Exit(1)
+	}
+	cfg.MaxConns = 25
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)

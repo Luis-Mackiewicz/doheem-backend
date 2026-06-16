@@ -48,18 +48,21 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusCreated, toTaskResponse(created))
+	isAdmin := h.svc.IsAdmin(r.Context(), groupID, userID)
+	respondJSON(w, http.StatusCreated, toTaskResponse(created, userID, isAdmin))
 }
 
 func (h *TaskHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
 	groupID := r.PathValue("groupId")
 	tasks, err := h.svc.ListByGroup(r.Context(), groupID)
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
+	isAdmin := h.svc.IsAdmin(r.Context(), groupID, userID)
 	limit, offset := parsePagination(r)
-	items, total := paginate(toTaskResponses(tasks), limit, offset)
+	items, total := paginate(toTaskResponses(tasks, userID, isAdmin), limit, offset)
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
@@ -76,16 +79,19 @@ func (h *TaskHandler) ListOccurrences(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
-	task, err := h.svc.GetByID(r.Context(), id)
+	t, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toTaskResponse(task))
+	isAdmin := h.svc.IsAdmin(r.Context(), t.GroupID, userID)
+	respondJSON(w, http.StatusOK, toTaskResponse(t, userID, isAdmin))
 }
 
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
 	var req struct {
 		Title       *string `json:"title,omitempty"`
@@ -114,17 +120,19 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	updated, err := h.svc.Update(r.Context(), id, params)
+	updated, err := h.svc.Update(r.Context(), id, params, userID)
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
-	respondJSON(w, http.StatusOK, toTaskResponse(updated))
+	isAdmin := h.svc.IsAdmin(r.Context(), updated.GroupID, userID)
+	respondJSON(w, http.StatusOK, toTaskResponse(updated, userID, isAdmin))
 }
 
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(UserIDKey).(string)
 	id := r.PathValue("id")
-	if err := h.svc.Delete(r.Context(), id); err != nil {
+	if err := h.svc.Delete(r.Context(), id, userID); err != nil {
 		handleError(w, r, err)
 		return
 	}
@@ -183,6 +191,8 @@ type taskResponse struct {
 	Status      string `json:"status"`
 	Position    int32  `json:"position"`
 	DueDate     string `json:"due_date"`
+	IsOverdue   bool   `json:"is_overdue"`
+	CanModify   bool   `json:"can_modify"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }
@@ -196,7 +206,10 @@ type taskOccurrenceResponse struct {
 	CreatedAt   string  `json:"created_at"`
 }
 
-func toTaskResponse(t task.Task) taskResponse {
+func toTaskResponse(t task.Task, currentUser string, isAdmin bool) taskResponse {
+	now := time.Now().Truncate(24 * time.Hour)
+	isOverdue := t.Status != "done" && !t.DueDate.IsZero() && t.DueDate.Before(now)
+	canModify := t.CreatedBy == currentUser || isAdmin
 	return taskResponse{
 		ID:          t.ID,
 		GroupID:     t.GroupID,
@@ -207,15 +220,17 @@ func toTaskResponse(t task.Task) taskResponse {
 		Status:      t.Status,
 		Position:    t.Position,
 		DueDate:     t.DueDate.Format("2006-01-02"),
+		IsOverdue:   isOverdue,
+		CanModify:   canModify,
 		CreatedAt:   t.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:   t.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 
-func toTaskResponses(tasks []task.Task) []taskResponse {
+func toTaskResponses(tasks []task.Task, currentUser string, isAdmin bool) []taskResponse {
 	res := make([]taskResponse, len(tasks))
 	for i, t := range tasks {
-		res[i] = toTaskResponse(t)
+		res[i] = toTaskResponse(t, currentUser, isAdmin)
 	}
 	return res
 }

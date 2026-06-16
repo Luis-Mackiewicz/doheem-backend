@@ -119,10 +119,25 @@ type CreateExpenseSplitParams struct {
 	Amount float64
 }
 
+type CalculateSplitsParams struct {
+	GroupID         string
+	Amount          float64
+	SplitMode       string
+	SelectedUserIDs []string
+}
+
+type CreateExpenseWithSplitsParams struct {
+	Expense    CreateExpenseParams
+	Splits     []CreateExpenseSplitParams
+	CalcParams CalculateSplitsParams
+}
+
 var (
-	ErrExpenseNotFound          = errors.New("expense not found")
-	ErrInvalidSplitTotal        = errors.New("split amounts must equal total amount")
-	ErrCategoryNotFound         = errors.New("category not found")
-	ErrForbidden                = errors.New("forbidden")
+	ErrExpenseNotFound            = errors.New("expense not found")
+	ErrInvalidSplitTotal          = errors.New("split amounts must equal total amount")
+	ErrCategoryNotFound           = errors.New("category not found")
+	ErrForbidden                  = errors.New("forbidden")
 	ErrCannotDeleteWithPaidSplits = errors.New("cannot delete expense with paid splits")
+	ErrInvalidSplitMode           = errors.New("invalid split mode")
+	ErrNoSelectedMembers          = errors.New("select at least 2 members for some split")
 )

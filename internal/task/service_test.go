@@ -94,7 +94,7 @@ func (m *mockTaskOccurrenceRepo) DeleteByTask(ctx context.Context, taskID string
 
 func TestTaskService_GetByID_NotFound(t *testing.T) {
 	mockTask := new(mockTaskRepo)
-	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo))
+	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo), nil, nil)
 	ctx := context.Background()
 
 	mockTask.On("GetByID", ctx, "999").Return(Task{}, assert.AnError)
@@ -106,7 +106,7 @@ func TestTaskService_GetByID_NotFound(t *testing.T) {
 
 func TestTaskService_GetByID_Success(t *testing.T) {
 	mockTask := new(mockTaskRepo)
-	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo))
+	svc := NewTaskService(mockTask, new(mockTaskOccurrenceRepo), nil, nil)
 	ctx := context.Background()
 
 	mockTask.On("GetByID", ctx, "1").Return(Task{ID: "1", Title: "Test Task"}, nil)
@@ -124,7 +124,7 @@ func strPtr(s string) *string {
 func TestTaskService_CompleteOccurrence(t *testing.T) {
 	mockTask := new(mockTaskRepo)
 	mockOccurrence := new(mockTaskOccurrenceRepo)
-	svc := NewTaskService(mockTask, mockOccurrence)
+	svc := NewTaskService(mockTask, mockOccurrence, nil, nil)
 	ctx := context.Background()
 
 	mockOccurrence.On("Complete", ctx, "o1", "u1").Return(nil)
@@ -137,7 +137,7 @@ func TestTaskService_CompleteOccurrence(t *testing.T) {
 
 func TestTaskService_DiscardOccurrence(t *testing.T) {
 	mockOccurrence := new(mockTaskOccurrenceRepo)
-	svc := NewTaskService(new(mockTaskRepo), mockOccurrence)
+	svc := NewTaskService(new(mockTaskRepo), mockOccurrence, nil, nil)
 	ctx := context.Background()
 
 	mockOccurrence.On("Discard", ctx, "o1").Return(nil)
