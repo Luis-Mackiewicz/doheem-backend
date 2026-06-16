@@ -67,9 +67,20 @@ func TestExpenseRepo_ListByGroup(t *testing.T) {
 		Installments: 1,
 	})
 
-	expenses, err := expenseRepo.ListByGroup(ctx, group.ID, 10, 0)
+	expenses, err := expenseRepo.ListByGroup(ctx, group.ID, nil, nil, 10, 0)
 	require.NoError(t, err)
 	assert.Len(t, expenses, 2)
+
+	got, err := expenseRepo.ListByGroup(ctx, group.ID, datePtr(t, "2025-01-01"), datePtr(t, "2025-12-31"), 10, 0)
+	require.NoError(t, err)
+	assert.Len(t, got, 0)
+}
+
+func datePtr(t *testing.T, s string) *time.Time {
+	t.Helper()
+	d, err := time.Parse("2006-01-02", s)
+	require.NoError(t, err)
+	return &d
 }
 
 func TestExpenseRepo_Update(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"doheem-backend/internal/group"
+	"doheem-backend/internal/notification"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,13 +21,13 @@ func (m *mockExpenseRepo) GetByID(ctx context.Context, id string) (Expense, erro
 	return args.Get(0).(Expense), args.Error(1)
 }
 
-func (m *mockExpenseRepo) ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error) {
-	args := m.Called(ctx, groupID, limit, offset)
+func (m *mockExpenseRepo) ListByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, limit, offset int32) ([]Expense, error) {
+	args := m.Called(ctx, groupID, dateFrom, dateTo, limit, offset)
 	return args.Get(0).([]Expense), args.Error(1)
 }
 
-func (m *mockExpenseRepo) CountByGroup(ctx context.Context, groupID string) (int, error) {
-	args := m.Called(ctx, groupID)
+func (m *mockExpenseRepo) CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error) {
+	args := m.Called(ctx, groupID, dateFrom, dateTo)
 	return args.Get(0).(int), args.Error(1)
 }
 
@@ -148,6 +149,42 @@ func (m *mockCategoryRepo) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+type mockNotifRepo struct {
+	mock.Mock
+}
+
+func (m *mockNotifRepo) GetByID(ctx context.Context, id string) (notification.Notification, error) {
+	return notification.Notification{}, nil
+}
+
+func (m *mockNotifRepo) ListByUser(ctx context.Context, userID string, limit, offset int32) ([]notification.Notification, error) {
+	return nil, nil
+}
+
+func (m *mockNotifRepo) ListUnreadByUser(ctx context.Context, userID string) ([]notification.Notification, error) {
+	return nil, nil
+}
+
+func (m *mockNotifRepo) Create(ctx context.Context, params notification.CreateNotificationParams) (notification.Notification, error) {
+	return notification.Notification{}, nil
+}
+
+func (m *mockNotifRepo) MarkAsRead(ctx context.Context, id, userID string) error {
+	return nil
+}
+
+func (m *mockNotifRepo) MarkAllAsRead(ctx context.Context, userID string) error {
+	return nil
+}
+
+func (m *mockNotifRepo) CountUnread(ctx context.Context, userID string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockNotifRepo) Delete(ctx context.Context, id, userID string) error {
+	return nil
+}
+
 type mockGroupMemberRepo struct {
 	mock.Mock
 }
@@ -182,7 +219,8 @@ func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64,
 }
 
 func TestExpenseService_Create_InvalidSplitTotal(t *testing.T) {
-	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))
+
 	ctx := context.Background()
 
 	params := CreateExpenseWithSplitsParams{
@@ -197,7 +235,7 @@ func TestExpenseService_Create_InvalidSplitTotal(t *testing.T) {
 
 func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
 	mockCategory := new(mockCategoryRepo)
-	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo))
+	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	catID := "cat999"
@@ -220,7 +258,7 @@ func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
 func TestExpenseService_Create_Simple(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
 	mockCategory := new(mockCategoryRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	mockCategory.On("GetByID", ctx, "cat1").Return(ExpenseCategory{ID: "cat1"}, nil)
@@ -243,7 +281,7 @@ func TestExpenseService_Create_Simple(t *testing.T) {
 func TestExpenseService_Create_Installment(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
 	mockCategory := new(mockCategoryRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), mockCategory, new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	mockCategory.On("GetByID", ctx, "cat1").Return(ExpenseCategory{ID: "cat1"}, nil)
@@ -276,7 +314,7 @@ func TestExpenseService_Create_Installment(t *testing.T) {
 
 func TestExpenseService_GetByID_NotFound(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	mockExpense.On("GetByID", ctx, "999").Return(Expense{}, assert.AnError)
@@ -288,7 +326,7 @@ func TestExpenseService_GetByID_NotFound(t *testing.T) {
 
 func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
-	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	mockExpense.On("GetTotalByGroup", ctx, "g1").Return(0.0, nil)
@@ -301,7 +339,7 @@ func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 
 func TestExpenseService_MarkSplitAsPaid(t *testing.T) {
 	mockSplit := new(mockExpenseSplitRepo)
-	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockCategoryRepo), new(mockGroupMemberRepo))
+	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	mockSplit.On("MarkAsPaid", ctx, "s1").Return(nil)
@@ -315,7 +353,7 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 	mockExpense := new(mockExpenseRepo)
 	mockSplit := new(mockExpenseSplitRepo)
 	mockCategory := new(mockCategoryRepo)
-	svc := NewExpenseService(mockExpense, mockSplit, mockCategory, new(mockGroupMemberRepo))
+	svc := NewExpenseService(mockExpense, mockSplit, mockCategory, new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
 	mockCategory.On("GetByID", ctx, "cat1").Return(ExpenseCategory{ID: "cat1"}, nil)

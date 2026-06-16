@@ -93,6 +93,13 @@ func DateFromTime(t time.Time) pgtype.Date {
 	return pgtype.Date{Time: t, Valid: true}
 }
 
+func DateFromTimePtr(t *time.Time) pgtype.Date {
+	if t == nil {
+		return pgtype.Date{}
+	}
+	return pgtype.Date{Time: *t, Valid: true}
+}
+
 func DateToTimePtr(t pgtype.Date) *time.Time {
 	if !t.Valid {
 		return nil

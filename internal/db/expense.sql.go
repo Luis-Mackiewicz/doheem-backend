@@ -14,10 +14,18 @@ import (
 const countExpensesByGroup = `-- name: CountExpensesByGroup :one
 SELECT COUNT(*) FROM expenses
 WHERE group_id = $1
+  AND ($2::DATE IS NULL OR competence_date >= $2)
+  AND ($3::DATE IS NULL OR competence_date <= $3)
 `
 
-func (q *Queries) CountExpensesByGroup(ctx context.Context, groupID pgtype.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countExpensesByGroup, groupID)
+type CountExpensesByGroupParams struct {
+	GroupID            pgtype.UUID
+	CompetenceDateFrom pgtype.Date
+	CompetenceDateTo   pgtype.Date
+}
+
+func (q *Queries) CountExpensesByGroup(ctx context.Context, arg CountExpensesByGroupParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countExpensesByGroup, arg.GroupID, arg.CompetenceDateFrom, arg.CompetenceDateTo)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -195,18 +203,22 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 const listExpensesByGroup = `-- name: ListExpensesByGroup :many
 SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
 WHERE group_id = $1
+  AND ($2::DATE IS NULL OR competence_date >= $2)
+  AND ($3::DATE IS NULL OR competence_date <= $3)
 ORDER BY competence_date DESC, created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $4 OFFSET $5
 `
 
 type ListExpensesByGroupParams struct {
-	GroupID pgtype.UUID
-	Limit   int32
-	Offset  int32
+	GroupID            pgtype.UUID
+	CompetenceDateFrom pgtype.Date
+	CompetenceDateTo   pgtype.Date
+	Limit              int32
+	Offset             int32
 }
 
 func (q *Queries) ListExpensesByGroup(ctx context.Context, arg ListExpensesByGroupParams) ([]Expense, error) {
-	rows, err := q.db.Query(ctx, listExpensesByGroup, arg.GroupID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listExpensesByGroup, arg.GroupID, arg.CompetenceDateFrom, arg.CompetenceDateTo, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

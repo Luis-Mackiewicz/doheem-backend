@@ -51,7 +51,7 @@ func main() {
 	userSvc := user.NewUserService(userRepo, refreshTokenRepo)
 	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo)
 	notificationSvc := notification.NewNotificationService(notificationRepo)
-	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo)
+	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo, notificationRepo)
 	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo)
 
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)

@@ -5,12 +5,16 @@ WHERE id = $1;
 -- name: ListExpensesByGroup :many
 SELECT * FROM expenses
 WHERE group_id = $1
+  AND ($2::DATE IS NULL OR competence_date >= $2)
+  AND ($3::DATE IS NULL OR competence_date <= $3)
 ORDER BY competence_date DESC, created_at DESC
-LIMIT $2 OFFSET $3;
+LIMIT $4 OFFSET $5;
 
 -- name: CountExpensesByGroup :one
 SELECT COUNT(*) FROM expenses
-WHERE group_id = $1;
+WHERE group_id = $1
+  AND ($2::DATE IS NULL OR competence_date >= $2)
+  AND ($3::DATE IS NULL OR competence_date <= $3);
 
 -- name: ListExpensesByUser :many
 SELECT e.* FROM expenses e

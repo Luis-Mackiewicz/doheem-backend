@@ -1,4 +1,24 @@
 services:
+  doheem:
+    build: .
+    restart: always
+    env_file: .env
+    expose:
+      - "8080"
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - doheem
+
   db:
     image: postgres:18.4
     restart: always
@@ -15,7 +35,7 @@ services:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379" 
+      - "6379:6379"
 
 volumes:
   pgdata:

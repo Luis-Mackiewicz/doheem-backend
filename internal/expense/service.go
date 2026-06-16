@@ -3,8 +3,11 @@ package expense
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"doheem-backend/internal/group"
+	"doheem-backend/internal/notification"
 )
 
 type ExpenseService struct {
@@ -12,6 +15,7 @@ type ExpenseService struct {
 	expenseSplitRepo ExpenseSplitRepository
 	categoryRepo     ExpenseCategoryRepository
 	memberRepo       group.GroupMemberRepository
+	notifRepo        notification.NotificationRepository
 }
 
 func NewExpenseService(
@@ -19,12 +23,14 @@ func NewExpenseService(
 	expenseSplitRepo ExpenseSplitRepository,
 	categoryRepo ExpenseCategoryRepository,
 	memberRepo group.GroupMemberRepository,
+	notifRepo notification.NotificationRepository,
 ) *ExpenseService {
 	return &ExpenseService{
 		expenseRepo:      expenseRepo,
 		expenseSplitRepo: expenseSplitRepo,
 		categoryRepo:     categoryRepo,
 		memberRepo:       memberRepo,
+		notifRepo:        notifRepo,
 	}
 }
 
@@ -86,6 +92,22 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 			if err != nil {
 				return Expense{}, err
 			}
+
+			for _, sp := range params.Splits {
+				if sp.UserID == params.Expense.PaidBy {
+					continue
+				}
+				title := fmt.Sprintf("Nova despesa: %s", params.Expense.Description)
+				message := fmt.Sprintf("R$ %.2f (parcelada) — sua cota: R$ %.2f", params.Expense.Amount, sp.Amount)
+				relatedID := &expense.ID
+				s.notifRepo.Create(ctx, notification.CreateNotificationParams{
+					UserID:    sp.UserID,
+					Type:      "expense",
+					Title:     title,
+					Message:   message,
+					RelatedID: relatedID,
+				})
+			}
 		}
 
 		return expense, nil
@@ -101,6 +123,22 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 		if err != nil {
 			return Expense{}, err
 		}
+
+		for _, sp := range params.Splits {
+			if sp.UserID == params.Expense.PaidBy {
+				continue
+			}
+			title := fmt.Sprintf("Nova despesa: %s", params.Expense.Description)
+			message := fmt.Sprintf("R$ %.2f — sua cota: R$ %.2f", params.Expense.Amount, sp.Amount)
+			relatedID := &expense.ID
+			s.notifRepo.Create(ctx, notification.CreateNotificationParams{
+				UserID:    sp.UserID,
+				Type:      "expense",
+				Title:     title,
+				Message:   message,
+				RelatedID: relatedID,
+			})
+		}
 	}
 
 	return expense, nil
@@ -114,12 +152,12 @@ func (s *ExpenseService) GetByID(ctx context.Context, id string) (Expense, error
 	return expense, nil
 }
 
-func (s *ExpenseService) ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error) {
-	return s.expenseRepo.ListByGroup(ctx, groupID, limit, offset)
+func (s *ExpenseService) ListByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, limit, offset int32) ([]Expense, error) {
+	return s.expenseRepo.ListByGroup(ctx, groupID, dateFrom, dateTo, limit, offset)
 }
 
-func (s *ExpenseService) CountByGroup(ctx context.Context, groupID string) (int, error) {
-	return s.expenseRepo.CountByGroup(ctx, groupID)
+func (s *ExpenseService) CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error) {
+	return s.expenseRepo.CountByGroup(ctx, groupID, dateFrom, dateTo)
 }
 
 func (s *ExpenseService) ListByUser(ctx context.Context, userID string) ([]Expense, error) {

@@ -82,8 +82,8 @@ type UserBalance struct {
 
 type ExpenseRepository interface {
 	GetByID(ctx context.Context, id string) (Expense, error)
-	ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error)
-	CountByGroup(ctx context.Context, groupID string) (int, error)
+	ListByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, limit, offset int32) ([]Expense, error)
+	CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error)
 	ListByUser(ctx context.Context, userID string) ([]Expense, error)
 	ListByCategory(ctx context.Context, categoryID string) ([]Expense, error)
 	ListByParent(ctx context.Context, parentID string) ([]Expense, error)

@@ -25,11 +25,13 @@ func (r *ExpenseRepo) GetByID(ctx context.Context, id string) (Expense, error) {
 	return toExpense(e), nil
 }
 
-func (r *ExpenseRepo) ListByGroup(ctx context.Context, groupID string, limit, offset int32) ([]Expense, error) {
+func (r *ExpenseRepo) ListByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, limit, offset int32) ([]Expense, error) {
 	expenses, err := r.q.ListExpensesByGroup(ctx, db.ListExpensesByGroupParams{
-		GroupID: db.UUIDFromString(groupID),
-		Limit:   limit,
-		Offset:  offset,
+		GroupID:            db.UUIDFromString(groupID),
+		CompetenceDateFrom: db.DateFromTimePtr(dateFrom),
+		CompetenceDateTo:   db.DateFromTimePtr(dateTo),
+		Limit:              limit,
+		Offset:             offset,
 	})
 	if err != nil {
 		return nil, err
@@ -37,8 +39,12 @@ func (r *ExpenseRepo) ListByGroup(ctx context.Context, groupID string, limit, of
 	return toExpenses(expenses), nil
 }
 
-func (r *ExpenseRepo) CountByGroup(ctx context.Context, groupID string) (int, error) {
-	count, err := r.q.CountExpensesByGroup(ctx, db.UUIDFromString(groupID))
+func (r *ExpenseRepo) CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error) {
+	count, err := r.q.CountExpensesByGroup(ctx, db.CountExpensesByGroupParams{
+		GroupID:            db.UUIDFromString(groupID),
+		CompetenceDateFrom: db.DateFromTimePtr(dateFrom),
+		CompetenceDateTo:   db.DateFromTimePtr(dateTo),
+	})
 	if err != nil {
 		return 0, err
 	}

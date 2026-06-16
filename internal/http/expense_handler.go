@@ -94,13 +94,27 @@ func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 	limit, offset := parsePagination(r)
 
-	expenses, err := h.svc.ListByGroup(r.Context(), groupID, int32(limit), int32(offset))
+	var dateFrom, dateTo *time.Time
+	if s := r.URL.Query().Get("competence_date_from"); s != "" {
+		t, err := time.Parse("2006-01-02", s)
+		if err == nil {
+			dateFrom = &t
+		}
+	}
+	if s := r.URL.Query().Get("competence_date_to"); s != "" {
+		t, err := time.Parse("2006-01-02", s)
+		if err == nil {
+			dateTo = &t
+		}
+	}
+
+	expenses, err := h.svc.ListByGroup(r.Context(), groupID, dateFrom, dateTo, int32(limit), int32(offset))
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 
-	total, err := h.svc.CountByGroup(r.Context(), groupID)
+	total, err := h.svc.CountByGroup(r.Context(), groupID, dateFrom, dateTo)
 	if err != nil {
 		handleError(w, r, err)
 		return
