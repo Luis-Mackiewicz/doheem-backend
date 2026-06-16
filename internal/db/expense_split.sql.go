@@ -163,6 +163,56 @@ func (q *Queries) ListExpenseSplitsByExpense(ctx context.Context, expenseID pgty
 	return items, nil
 }
 
+const listExpenseSplitsByExpenseIDs = `-- name: ListExpenseSplitsByExpenseIDs :many
+SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, u.name AS user_name, u.email AS user_email
+FROM expense_splits es
+JOIN users u ON u.id = es.user_id
+WHERE es.expense_id = ANY($1::uuid[])
+ORDER BY es.expense_id, es.amount DESC
+`
+
+type ListExpenseSplitsByExpenseIDsRow struct {
+	ID        pgtype.UUID
+	ExpenseID pgtype.UUID
+	UserID    pgtype.UUID
+	Amount    pgtype.Numeric
+	IsPaid    bool
+	PaidAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+	UserName  string
+	UserEmail string
+}
+
+func (q *Queries) ListExpenseSplitsByExpenseIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]ListExpenseSplitsByExpenseIDsRow, error) {
+	rows, err := q.db.Query(ctx, listExpenseSplitsByExpenseIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpenseSplitsByExpenseIDsRow
+	for rows.Next() {
+		var i ListExpenseSplitsByExpenseIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ExpenseID,
+			&i.UserID,
+			&i.Amount,
+			&i.IsPaid,
+			&i.PaidAt,
+			&i.CreatedAt,
+			&i.UserName,
+			&i.UserEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpenseSplitsByUser = `-- name: ListExpenseSplitsByUser :many
 SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, e.description AS expense_description
 FROM expense_splits es

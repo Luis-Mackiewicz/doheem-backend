@@ -9,6 +9,13 @@ JOIN users u ON u.id = es.user_id
 WHERE es.expense_id = $1
 ORDER BY es.amount DESC;
 
+-- name: ListExpenseSplitsByExpenseIDs :many
+SELECT es.*, u.name AS user_name, u.email AS user_email
+FROM expense_splits es
+JOIN users u ON u.id = es.user_id
+WHERE es.expense_id = ANY($1::uuid[])
+ORDER BY es.expense_id, es.amount DESC;
+
 -- name: ListExpenseSplitsByUser :many
 SELECT es.*, e.description AS expense_description
 FROM expense_splits es

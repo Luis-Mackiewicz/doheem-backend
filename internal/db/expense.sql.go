@@ -144,6 +144,98 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 	return i, err
 }
 
+const listExpensesByGroupFull = `-- name: ListExpensesByGroupFull :many
+SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_at, e.updated_at, COUNT(*) OVER() AS total_count
+FROM expenses e
+WHERE e.group_id = $1
+  AND ($2::DATE IS NULL OR e.competence_date >= $2)
+  AND ($3::DATE IS NULL OR e.competence_date <= $3)
+  AND ($4::TEXT IS NULL OR $4 = '' OR e.description ILIKE '%' || $4 || '%')
+  AND ($5::UUID IS NULL OR EXISTS (
+    SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id AND es.user_id = $5
+  ))
+ORDER BY e.competence_date DESC, e.created_at DESC
+LIMIT $6 OFFSET $7
+`
+
+type ListExpensesByGroupFullParams struct {
+	GroupID pgtype.UUID
+	Column2 pgtype.Date
+	Column3 pgtype.Date
+	Column4 string
+	Column5 pgtype.UUID
+	Limit   int32
+	Offset  int32
+}
+
+type ListExpensesByGroupFullRow struct {
+	ID               pgtype.UUID
+	GroupID          pgtype.UUID
+	Description      string
+	Amount           pgtype.Numeric
+	CategoryID       pgtype.UUID
+	CompetenceDate   pgtype.Date
+	DueDate          pgtype.Date
+	PaidBy           pgtype.UUID
+	SplitMode        string
+	Installments     int32
+	FirstDueDate     pgtype.Date
+	IsFixed          bool
+	ParentExpenseID  pgtype.UUID
+	InstallmentIndex pgtype.Int4
+	InstallmentTotal pgtype.Int4
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+	TotalCount       int64
+}
+
+func (q *Queries) ListExpensesByGroupFull(ctx context.Context, arg ListExpensesByGroupFullParams) ([]ListExpensesByGroupFullRow, error) {
+	rows, err := q.db.Query(ctx, listExpensesByGroupFull,
+		arg.GroupID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpensesByGroupFullRow
+	for rows.Next() {
+		var i ListExpensesByGroupFullRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.GroupID,
+			&i.Description,
+			&i.Amount,
+			&i.CategoryID,
+			&i.CompetenceDate,
+			&i.DueDate,
+			&i.PaidBy,
+			&i.SplitMode,
+			&i.Installments,
+			&i.FirstDueDate,
+			&i.IsFixed,
+			&i.ParentExpenseID,
+			&i.InstallmentIndex,
+			&i.InstallmentTotal,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTotalExpensesByGroup = `-- name: GetTotalExpensesByGroup :one
 SELECT COALESCE(SUM(amount), 0)::NUMERIC(12,2) FROM expenses
 WHERE group_id = $1

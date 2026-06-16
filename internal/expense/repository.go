@@ -39,6 +39,52 @@ func (r *ExpenseRepo) ListByGroup(ctx context.Context, groupID string, dateFrom,
 	return toExpenses(expenses), nil
 }
 
+func (r *ExpenseRepo) ListByGroupFull(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, search string, myUserID *string, limit, offset int32) ([]Expense, int64, error) {
+	userID := pgtype.UUID{}
+	if myUserID != nil {
+		userID = db.UUIDFromString(*myUserID)
+	}
+	rows, err := r.q.ListExpensesByGroupFull(ctx, db.ListExpensesByGroupFullParams{
+		GroupID: db.UUIDFromString(groupID),
+		Column2: db.DateFromTimePtr(dateFrom),
+		Column3: db.DateFromTimePtr(dateTo),
+		Column4: search,
+		Column5: userID,
+		Limit:   limit,
+		Offset:  offset,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	var total int64
+	result := make([]Expense, len(rows))
+	for i, r := range rows {
+		if i == 0 {
+			total = r.TotalCount
+		}
+		result[i] = toExpense(db.Expense{
+			ID:               r.ID,
+			GroupID:          r.GroupID,
+			Description:      r.Description,
+			Amount:           r.Amount,
+			CategoryID:       r.CategoryID,
+			CompetenceDate:   r.CompetenceDate,
+			DueDate:          r.DueDate,
+			PaidBy:           r.PaidBy,
+			SplitMode:        r.SplitMode,
+			Installments:     r.Installments,
+			FirstDueDate:     r.FirstDueDate,
+			IsFixed:          r.IsFixed,
+			ParentExpenseID:  r.ParentExpenseID,
+			InstallmentIndex: r.InstallmentIndex,
+			InstallmentTotal: r.InstallmentTotal,
+			CreatedAt:        r.CreatedAt,
+			UpdatedAt:        r.UpdatedAt,
+		})
+	}
+	return result, total, nil
+}
+
 func (r *ExpenseRepo) CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error) {
 	count, err := r.q.CountExpensesByGroup(ctx, db.CountExpensesByGroupParams{
 		GroupID:            db.UUIDFromString(groupID),

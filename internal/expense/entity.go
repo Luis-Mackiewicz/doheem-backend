@@ -83,6 +83,7 @@ type UserBalance struct {
 type ExpenseRepository interface {
 	GetByID(ctx context.Context, id string) (Expense, error)
 	ListByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, limit, offset int32) ([]Expense, error)
+	ListByGroupFull(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, search string, myUserID *string, limit, offset int32) ([]Expense, int64, error)
 	CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error)
 	ListByUser(ctx context.Context, userID string) ([]Expense, error)
 	ListByCategory(ctx context.Context, categoryID string) ([]Expense, error)
@@ -105,6 +106,7 @@ type ExpenseCategoryRepository interface {
 type ExpenseSplitRepository interface {
 	GetByID(ctx context.Context, id string) (ExpenseSplit, error)
 	ListByExpense(ctx context.Context, expenseID string) ([]ExpenseSplitWithUser, error)
+	ListByExpenseIDs(ctx context.Context, expenseIDs []string) ([]ExpenseSplitWithUser, error)
 	ListByUser(ctx context.Context, userID, groupID string) ([]ExpenseSplit, error)
 	Create(ctx context.Context, expenseID, userID string, amount float64) (ExpenseSplit, error)
 	CreateMany(ctx context.Context, expenseID string, splits []CreateExpenseSplitParams) (int64, error)

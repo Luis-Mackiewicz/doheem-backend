@@ -71,6 +71,11 @@ func (m *mockExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (
 	return args.Get(0).(float64), args.Error(1)
 }
 
+func (m *mockExpenseRepo) ListByGroupFull(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, search string, myUserID *string, limit, offset int32) ([]Expense, int64, error) {
+	args := m.Called(ctx, groupID, dateFrom, dateTo, search, myUserID, limit, offset)
+	return args.Get(0).([]Expense), args.Get(1).(int64), args.Error(2)
+}
+
 type mockExpenseSplitRepo struct {
 	mock.Mock
 }
@@ -82,6 +87,11 @@ func (m *mockExpenseSplitRepo) GetByID(ctx context.Context, id string) (ExpenseS
 
 func (m *mockExpenseSplitRepo) ListByExpense(ctx context.Context, expenseID string) ([]ExpenseSplitWithUser, error) {
 	args := m.Called(ctx, expenseID)
+	return args.Get(0).([]ExpenseSplitWithUser), args.Error(1)
+}
+
+func (m *mockExpenseSplitRepo) ListByExpenseIDs(ctx context.Context, expenseIDs []string) ([]ExpenseSplitWithUser, error) {
+	args := m.Called(ctx, expenseIDs)
 	return args.Get(0).([]ExpenseSplitWithUser), args.Error(1)
 }
 

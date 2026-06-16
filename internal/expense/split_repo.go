@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"doheem-backend/internal/db"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ExpenseSplitRepo struct {
@@ -28,6 +29,21 @@ func (r *ExpenseSplitRepo) ListByExpense(ctx context.Context, expenseID string) 
 		return nil, err
 	}
 	return toExpenseSplitsWithUser(rows), nil
+}
+
+func (r *ExpenseSplitRepo) ListByExpenseIDs(ctx context.Context, expenseIDs []string) ([]ExpenseSplitWithUser, error) {
+	uuids := make([]pgtype.UUID, len(expenseIDs))
+	for i, id := range expenseIDs {
+		uuids[i] = db.UUIDFromString(id)
+	}
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.q.ListExpenseSplitsByExpenseIDs(ctx, uuids)
+	if err != nil {
+		return nil, err
+	}
+	return toExpenseSplitsWithUserFromIDsRow(rows), nil
 }
 
 func (r *ExpenseSplitRepo) ListByUser(ctx context.Context, userID, groupID string) ([]ExpenseSplit, error) {
@@ -132,6 +148,26 @@ func toExpenseSplitsWithUser(rows []db.ListExpenseSplitsByExpenseRow) []ExpenseS
 	result := make([]ExpenseSplitWithUser, len(rows))
 	for i, r := range rows {
 		result[i] = toExpenseSplitWithUser(r)
+	}
+	return result
+}
+
+func toExpenseSplitsWithUserFromIDsRow(rows []db.ListExpenseSplitsByExpenseIDsRow) []ExpenseSplitWithUser {
+	result := make([]ExpenseSplitWithUser, len(rows))
+	for i, r := range rows {
+		result[i] = ExpenseSplitWithUser{
+			ExpenseSplit: ExpenseSplit{
+				ID:        db.UUIDToString(r.ID),
+				ExpenseID: db.UUIDToString(r.ExpenseID),
+				UserID:    db.UUIDToString(r.UserID),
+				Amount:    db.NumericToFloat64(r.Amount),
+				IsPaid:    r.IsPaid,
+				PaidAt:    db.TimestamptzToTimePtr(r.PaidAt),
+				CreatedAt: r.CreatedAt.Time,
+			},
+			UserName:  r.UserName,
+			UserEmail: r.UserEmail,
+		}
 	}
 	return result
 }

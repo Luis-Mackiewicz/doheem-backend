@@ -115,19 +115,41 @@ func (h *ExpenseHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	expenses, err := h.svc.ListByGroup(r.Context(), groupID, dateFrom, dateTo, int32(limit), int32(offset))
+	search := r.URL.Query().Get("search")
+
+	var myUserID *string
+	if r.URL.Query().Get("my_expenses") == "true" {
+		uid := r.Context().Value(UserIDKey).(string)
+		myUserID = &uid
+	}
+
+	expenses, total, err := h.svc.ListByGroupFull(r.Context(), groupID, dateFrom, dateTo, search, myUserID, int32(limit), int32(offset))
 	if err != nil {
 		handleError(w, r, err)
 		return
 	}
 
-	total, err := h.svc.CountByGroup(r.Context(), groupID, dateFrom, dateTo)
-	if err != nil {
-		handleError(w, r, err)
-		return
+	expenseIDs := make([]string, len(expenses))
+	for i, e := range expenses {
+		expenseIDs[i] = e.ID
 	}
 
-	respondJSON(w, http.StatusOK, paginatedResponse{Data: toExpenseResponses(expenses), Total: total})
+	splitsByExpense := make(map[string][]expenseSplitEmbeddedResponse)
+	if len(expenseIDs) > 0 {
+		splits, err := h.svc.ListSplitsByExpenseIDs(r.Context(), expenseIDs)
+		if err == nil {
+			for _, s := range toExpenseSplitEmbeddedResponses(splits) {
+				splitsByExpense[s.ExpenseID] = append(splitsByExpense[s.ExpenseID], s)
+			}
+		}
+	}
+
+	resp := make([]expenseResponse, len(expenses))
+	for i, e := range expenses {
+		resp[i] = toExpenseResponseWithSplits(e, splitsByExpense[e.ID])
+	}
+
+	respondJSON(w, http.StatusOK, paginatedResponse{Data: resp, Total: int(total)})
 }
 
 func (h *ExpenseHandler) ListSplits(w http.ResponseWriter, r *http.Request) {
@@ -282,23 +304,34 @@ func (h *ExpenseHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) 
 }
 
 type expenseResponse struct {
-	ID               string   `json:"id"`
-	GroupID          string   `json:"group_id"`
-	Description      string   `json:"description"`
-	Amount           float64  `json:"amount"`
-	CategoryID       string   `json:"category_id"`
-	CompetenceDate   string   `json:"competence_date"`
-	DueDate          string   `json:"due_date"`
-	PaidBy           string   `json:"paid_by"`
-	SplitMode        string   `json:"split_mode"`
-	Installments     int32    `json:"installments"`
-	FirstDueDate     *string  `json:"first_due_date,omitempty"`
-	IsFixed          bool     `json:"is_fixed"`
-	ParentExpenseID  *string  `json:"parent_expense_id,omitempty"`
-	InstallmentIndex *int32   `json:"installment_index,omitempty"`
-	InstallmentTotal *int32   `json:"installment_total,omitempty"`
-	CreatedAt        string   `json:"created_at"`
-	UpdatedAt        string   `json:"updated_at"`
+	ID               string                         `json:"id"`
+	GroupID          string                         `json:"group_id"`
+	Description      string                         `json:"description"`
+	Amount           float64                        `json:"amount"`
+	CategoryID       string                         `json:"category_id"`
+	CompetenceDate   string                         `json:"competence_date"`
+	DueDate          string                         `json:"due_date"`
+	PaidBy           string                         `json:"paid_by"`
+	SplitMode        string                         `json:"split_mode"`
+	Installments     int32                          `json:"installments"`
+	FirstDueDate     *string                        `json:"first_due_date,omitempty"`
+	IsFixed          bool                           `json:"is_fixed"`
+	Splits           []expenseSplitEmbeddedResponse `json:"splits,omitempty"`
+	ParentExpenseID  *string                        `json:"parent_expense_id,omitempty"`
+	InstallmentIndex *int32                         `json:"installment_index,omitempty"`
+	InstallmentTotal *int32                         `json:"installment_total,omitempty"`
+	CreatedAt        string                         `json:"created_at"`
+	UpdatedAt        string                         `json:"updated_at"`
+}
+
+type expenseSplitEmbeddedResponse struct {
+	ID        string  `json:"id"`
+	ExpenseID string  `json:"expense_id"`
+	UserID    string  `json:"user_id"`
+	Amount    float64 `json:"amount"`
+	IsPaid    bool    `json:"is_paid"`
+	UserName  string  `json:"user_name"`
+	UserEmail string  `json:"user_email"`
 }
 
 type expenseSplitResponse struct {
@@ -354,10 +387,38 @@ func toExpenseResponse(e expense.Expense) expenseResponse {
 	return r
 }
 
+func toExpenseResponseWithSplits(e expense.Expense, splits []expenseSplitEmbeddedResponse) expenseResponse {
+	r := toExpenseResponse(e)
+	if len(splits) > 0 {
+		r.Splits = splits
+	}
+	return r
+}
+
 func toExpenseResponses(expenses []expense.Expense) []expenseResponse {
 	res := make([]expenseResponse, len(expenses))
 	for i, e := range expenses {
 		res[i] = toExpenseResponse(e)
+	}
+	return res
+}
+
+func toExpenseSplitEmbeddedResponse(s expense.ExpenseSplitWithUser) expenseSplitEmbeddedResponse {
+	return expenseSplitEmbeddedResponse{
+		ID:        s.ID,
+		ExpenseID: s.ExpenseID,
+		UserID:    s.UserID,
+		Amount:    s.Amount,
+		IsPaid:    s.IsPaid,
+		UserName:  s.UserName,
+		UserEmail: s.UserEmail,
+	}
+}
+
+func toExpenseSplitEmbeddedResponses(splits []expense.ExpenseSplitWithUser) []expenseSplitEmbeddedResponse {
+	res := make([]expenseSplitEmbeddedResponse, len(splits))
+	for i, s := range splits {
+		res[i] = toExpenseSplitEmbeddedResponse(s)
 	}
 	return res
 }

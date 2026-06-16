@@ -10,6 +10,19 @@ WHERE group_id = $1
 ORDER BY competence_date DESC, created_at DESC
 LIMIT $4 OFFSET $5;
 
+-- name: ListExpensesByGroupFull :many
+SELECT e.*, COUNT(*) OVER() AS total_count
+FROM expenses e
+WHERE e.group_id = $1
+  AND ($2::DATE IS NULL OR e.competence_date >= $2)
+  AND ($3::DATE IS NULL OR e.competence_date <= $3)
+  AND ($4::TEXT IS NULL OR $4 = '' OR e.description ILIKE '%' || $4 || '%')
+  AND ($5::UUID IS NULL OR EXISTS (
+    SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id AND es.user_id = $5
+  ))
+ORDER BY e.competence_date DESC, e.created_at DESC
+LIMIT $6 OFFSET $7;
+
 -- name: CountExpensesByGroup :one
 SELECT COUNT(*) FROM expenses
 WHERE group_id = $1

@@ -202,6 +202,10 @@ func (s *ExpenseService) ListByGroup(ctx context.Context, groupID string, dateFr
 	return s.expenseRepo.ListByGroup(ctx, groupID, dateFrom, dateTo, limit, offset)
 }
 
+func (s *ExpenseService) ListByGroupFull(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, search string, myUserID *string, limit, offset int32) ([]Expense, int64, error) {
+	return s.expenseRepo.ListByGroupFull(ctx, groupID, dateFrom, dateTo, search, myUserID, limit, offset)
+}
+
 func (s *ExpenseService) CountByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time) (int, error) {
 	return s.expenseRepo.CountByGroup(ctx, groupID, dateFrom, dateTo)
 }
@@ -269,6 +273,10 @@ func (s *ExpenseService) MarkSplitAsPaid(ctx context.Context, splitID string) er
 
 func (s *ExpenseService) ListSplitsByExpense(ctx context.Context, expenseID string) ([]ExpenseSplitWithUser, error) {
 	return s.expenseSplitRepo.ListByExpense(ctx, expenseID)
+}
+
+func (s *ExpenseService) ListSplitsByExpenseIDs(ctx context.Context, expenseIDs []string) ([]ExpenseSplitWithUser, error) {
+	return s.expenseSplitRepo.ListByExpenseIDs(ctx, expenseIDs)
 }
 
 func (s *ExpenseService) ListSplitsByUser(ctx context.Context, userID, groupID string) ([]ExpenseSplit, error) {
