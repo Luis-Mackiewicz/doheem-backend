@@ -35,7 +35,10 @@ VALUES ($1, $2, $3);
 -- name: MarkExpenseSplitAsPaid :exec
 UPDATE expense_splits
 SET is_paid = true,
-    paid_at = NOW()
+    paid_at = NOW(),
+    receipt_data = $2,
+    receipt_type = $3,
+    receipt_file_name = $4
 WHERE id = $1;
 
 -- name: DeleteExpenseSplitsByExpense :exec

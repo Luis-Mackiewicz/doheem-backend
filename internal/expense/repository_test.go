@@ -190,7 +190,7 @@ func TestExpenseSplitRepo_CreateMany(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, splits, 2)
 
-	err = splitRepo.MarkAsPaid(ctx, splits[0].ID)
+	err = splitRepo.MarkAsPaid(ctx, splits[0].ID, nil, nil, nil)
 	require.NoError(t, err)
 
 	gotSplit, err := splitRepo.GetByID(ctx, splits[0].ID)

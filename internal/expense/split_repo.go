@@ -57,13 +57,16 @@ func (r *ExpenseSplitRepo) ListByUser(ctx context.Context, userID, groupID strin
 	result := make([]ExpenseSplit, len(rows))
 	for i, row := range rows {
 		result[i] = ExpenseSplit{
-			ID:        db.UUIDToString(row.ID),
-			ExpenseID: db.UUIDToString(row.ExpenseID),
-			UserID:    db.UUIDToString(row.UserID),
-			Amount:    db.NumericToFloat64(row.Amount),
-			IsPaid:    row.IsPaid,
-			PaidAt:    db.TimestamptzToTimePtr(row.PaidAt),
-			CreatedAt: row.CreatedAt.Time,
+			ID:              db.UUIDToString(row.ID),
+			ExpenseID:       db.UUIDToString(row.ExpenseID),
+			UserID:          db.UUIDToString(row.UserID),
+			Amount:          db.NumericToFloat64(row.Amount),
+			IsPaid:          row.IsPaid,
+			PaidAt:          db.TimestamptzToTimePtr(row.PaidAt),
+			CreatedAt:       row.CreatedAt.Time,
+			ReceiptData:     db.TextToStringPtr(row.ReceiptData),
+			ReceiptType:     db.TextToStringPtr(row.ReceiptType),
+			ReceiptFileName: db.TextToStringPtr(row.ReceiptFileName),
 		}
 	}
 	return result, nil
@@ -93,8 +96,13 @@ func (r *ExpenseSplitRepo) CreateMany(ctx context.Context, expenseID string, spl
 	return r.q.CreateExpenseSplits(ctx, params)
 }
 
-func (r *ExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string) error {
-	return r.q.MarkExpenseSplitAsPaid(ctx, db.UUIDFromString(id))
+func (r *ExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string, receiptData, receiptType, receiptFileName *string) error {
+	return r.q.MarkExpenseSplitAsPaid(ctx, db.MarkExpenseSplitAsPaidParams{
+		ID:              db.UUIDFromString(id),
+		ReceiptData:     db.TextFromStringPtr(receiptData),
+		ReceiptType:     db.TextFromStringPtr(receiptType),
+		ReceiptFileName: db.TextFromStringPtr(receiptFileName),
+	})
 }
 
 func (r *ExpenseSplitRepo) HasPaidSplits(ctx context.Context, expenseID string) (bool, error) {
@@ -118,26 +126,32 @@ func (r *ExpenseSplitRepo) GetUserBalance(ctx context.Context, userID, groupID s
 
 func toExpenseSplit(es db.ExpenseSplit) ExpenseSplit {
 	return ExpenseSplit{
-		ID:        db.UUIDToString(es.ID),
-		ExpenseID: db.UUIDToString(es.ExpenseID),
-		UserID:    db.UUIDToString(es.UserID),
-		Amount:    db.NumericToFloat64(es.Amount),
-		IsPaid:    es.IsPaid,
-		PaidAt:    db.TimestamptzToTimePtr(es.PaidAt),
-		CreatedAt: es.CreatedAt.Time,
+		ID:              db.UUIDToString(es.ID),
+		ExpenseID:       db.UUIDToString(es.ExpenseID),
+		UserID:          db.UUIDToString(es.UserID),
+		Amount:          db.NumericToFloat64(es.Amount),
+		IsPaid:          es.IsPaid,
+		PaidAt:          db.TimestamptzToTimePtr(es.PaidAt),
+		CreatedAt:       es.CreatedAt.Time,
+		ReceiptData:     db.TextToStringPtr(es.ReceiptData),
+		ReceiptType:     db.TextToStringPtr(es.ReceiptType),
+		ReceiptFileName: db.TextToStringPtr(es.ReceiptFileName),
 	}
 }
 
 func toExpenseSplitWithUser(row db.ListExpenseSplitsByExpenseRow) ExpenseSplitWithUser {
 	return ExpenseSplitWithUser{
 		ExpenseSplit: ExpenseSplit{
-			ID:        db.UUIDToString(row.ID),
-			ExpenseID: db.UUIDToString(row.ExpenseID),
-			UserID:    db.UUIDToString(row.UserID),
-			Amount:    db.NumericToFloat64(row.Amount),
-			IsPaid:    row.IsPaid,
-			PaidAt:    db.TimestamptzToTimePtr(row.PaidAt),
-			CreatedAt: row.CreatedAt.Time,
+			ID:              db.UUIDToString(row.ID),
+			ExpenseID:       db.UUIDToString(row.ExpenseID),
+			UserID:          db.UUIDToString(row.UserID),
+			Amount:          db.NumericToFloat64(row.Amount),
+			IsPaid:          row.IsPaid,
+			PaidAt:          db.TimestamptzToTimePtr(row.PaidAt),
+			CreatedAt:       row.CreatedAt.Time,
+			ReceiptData:     db.TextToStringPtr(row.ReceiptData),
+			ReceiptType:     db.TextToStringPtr(row.ReceiptType),
+			ReceiptFileName: db.TextToStringPtr(row.ReceiptFileName),
 		},
 		UserName:  row.UserName,
 		UserEmail: row.UserEmail,
@@ -157,13 +171,16 @@ func toExpenseSplitsWithUserFromIDsRow(rows []db.ListExpenseSplitsByExpenseIDsRo
 	for i, r := range rows {
 		result[i] = ExpenseSplitWithUser{
 			ExpenseSplit: ExpenseSplit{
-				ID:        db.UUIDToString(r.ID),
-				ExpenseID: db.UUIDToString(r.ExpenseID),
-				UserID:    db.UUIDToString(r.UserID),
-				Amount:    db.NumericToFloat64(r.Amount),
-				IsPaid:    r.IsPaid,
-				PaidAt:    db.TimestamptzToTimePtr(r.PaidAt),
-				CreatedAt: r.CreatedAt.Time,
+				ID:              db.UUIDToString(r.ID),
+				ExpenseID:       db.UUIDToString(r.ExpenseID),
+				UserID:          db.UUIDToString(r.UserID),
+				Amount:          db.NumericToFloat64(r.Amount),
+				IsPaid:          r.IsPaid,
+				PaidAt:          db.TimestamptzToTimePtr(r.PaidAt),
+				CreatedAt:       r.CreatedAt.Time,
+				ReceiptData:     db.TextToStringPtr(r.ReceiptData),
+				ReceiptType:     db.TextToStringPtr(r.ReceiptType),
+				ReceiptFileName: db.TextToStringPtr(r.ReceiptFileName),
 			},
 			UserName:  r.UserName,
 			UserEmail: r.UserEmail,

@@ -35,6 +35,7 @@ type Expense struct {
 	ParentExpenseID  pgtype.UUID
 	InstallmentIndex pgtype.Int4
 	InstallmentTotal pgtype.Int4
+	CreatedBy        pgtype.UUID
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
 }
@@ -47,13 +48,16 @@ type ExpenseCategory struct {
 }
 
 type ExpenseSplit struct {
-	ID        pgtype.UUID
-	ExpenseID pgtype.UUID
-	UserID    pgtype.UUID
-	Amount    pgtype.Numeric
-	IsPaid    bool
-	PaidAt    pgtype.Timestamptz
-	CreatedAt pgtype.Timestamptz
+	ID              pgtype.UUID
+	ExpenseID       pgtype.UUID
+	UserID          pgtype.UUID
+	Amount          pgtype.Numeric
+	IsPaid          bool
+	PaidAt          pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	ReceiptData     pgtype.Text
+	ReceiptType     pgtype.Text
+	ReceiptFileName pgtype.Text
 }
 
 type Group struct {

@@ -22,6 +22,7 @@ type Expense struct {
 	ParentExpenseID  *string
 	InstallmentIndex *int32
 	InstallmentTotal *int32
+	CreatedBy        *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -41,6 +42,7 @@ type CreateExpenseParams struct {
 	ParentExpenseID  *string
 	InstallmentIndex *int32
 	InstallmentTotal *int32
+	CreatedBy        *string
 }
 
 type UpdateExpenseParams struct {
@@ -60,13 +62,16 @@ type ExpenseCategory struct {
 }
 
 type ExpenseSplit struct {
-	ID        string
-	ExpenseID string
-	UserID    string
-	Amount    float64
-	IsPaid    bool
-	PaidAt    *time.Time
-	CreatedAt time.Time
+	ID             string
+	ExpenseID      string
+	UserID         string
+	Amount         float64
+	IsPaid         bool
+	PaidAt         *time.Time
+	CreatedAt      time.Time
+	ReceiptData    *string
+	ReceiptType    *string
+	ReceiptFileName *string
 }
 
 type ExpenseSplitWithUser struct {
@@ -110,7 +115,7 @@ type ExpenseSplitRepository interface {
 	ListByUser(ctx context.Context, userID, groupID string) ([]ExpenseSplit, error)
 	Create(ctx context.Context, expenseID, userID string, amount float64) (ExpenseSplit, error)
 	CreateMany(ctx context.Context, expenseID string, splits []CreateExpenseSplitParams) (int64, error)
-	MarkAsPaid(ctx context.Context, id string) error
+	MarkAsPaid(ctx context.Context, id string, receiptData, receiptType, receiptFileName *string) error
 	HasPaidSplits(ctx context.Context, expenseID string) (bool, error)
 	DeleteByExpense(ctx context.Context, expenseID string) error
 	GetUserBalance(ctx context.Context, userID, groupID string) (UserBalance, error)
@@ -140,6 +145,10 @@ var (
 	ErrCategoryNotFound           = errors.New("category not found")
 	ErrForbidden                  = errors.New("forbidden")
 	ErrCannotDeleteWithPaidSplits = errors.New("cannot delete expense with paid splits")
+	ErrCannotEditWithPaidSplits   = errors.New("cannot edit expense with paid splits")
 	ErrInvalidSplitMode           = errors.New("invalid split mode")
 	ErrNoSelectedMembers          = errors.New("select at least 2 members for some split")
+	ErrSplitAlreadyPaid           = errors.New("split already paid")
+	ErrCannotEditInstallmentChild = errors.New("cannot edit an installment child expense directly")
+	ErrCannotEditInstallmentParent = errors.New("cannot edit an installment parent expense directly")
 )

@@ -14,7 +14,7 @@ import (
 const createExpenseSplit = `-- name: CreateExpenseSplit :one
 INSERT INTO expense_splits (expense_id, user_id, amount)
 VALUES ($1, $2, $3)
-RETURNING id, expense_id, user_id, amount, is_paid, paid_at, created_at
+RETURNING id, expense_id, user_id, amount, is_paid, paid_at, created_at, receipt_data, receipt_type, receipt_file_name
 `
 
 type CreateExpenseSplitParams struct {
@@ -34,9 +34,14 @@ func (q *Queries) CreateExpenseSplit(ctx context.Context, arg CreateExpenseSplit
 		&i.IsPaid,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.ReceiptData,
+		&i.ReceiptType,
+		&i.ReceiptFileName,
 	)
 	return i, err
 }
+
+
 
 type CreateExpenseSplitsParams struct {
 	ExpenseID pgtype.UUID
@@ -55,7 +60,7 @@ func (q *Queries) DeleteExpenseSplitsByExpense(ctx context.Context, expenseID pg
 }
 
 const getExpenseSplitByID = `-- name: GetExpenseSplitByID :one
-SELECT id, expense_id, user_id, amount, is_paid, paid_at, created_at FROM expense_splits
+SELECT id, expense_id, user_id, amount, is_paid, paid_at, created_at, receipt_data, receipt_type, receipt_file_name FROM expense_splits
 WHERE id = $1
 `
 
@@ -70,6 +75,9 @@ func (q *Queries) GetExpenseSplitByID(ctx context.Context, id pgtype.UUID) (Expe
 		&i.IsPaid,
 		&i.PaidAt,
 		&i.CreatedAt,
+		&i.ReceiptData,
+		&i.ReceiptType,
+		&i.ReceiptFileName,
 	)
 	return i, err
 }
@@ -114,7 +122,7 @@ func (q *Queries) HasExpensePaidSplits(ctx context.Context, expenseID pgtype.UUI
 }
 
 const listExpenseSplitsByExpense = `-- name: ListExpenseSplitsByExpense :many
-SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, u.name AS user_name, u.email AS user_email
+SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, es.receipt_data, es.receipt_type, es.receipt_file_name, u.name AS user_name, u.email AS user_email
 FROM expense_splits es
 JOIN users u ON u.id = es.user_id
 WHERE es.expense_id = $1
@@ -122,15 +130,18 @@ ORDER BY es.amount DESC
 `
 
 type ListExpenseSplitsByExpenseRow struct {
-	ID        pgtype.UUID
-	ExpenseID pgtype.UUID
-	UserID    pgtype.UUID
-	Amount    pgtype.Numeric
-	IsPaid    bool
-	PaidAt    pgtype.Timestamptz
-	CreatedAt pgtype.Timestamptz
-	UserName  string
-	UserEmail string
+	ID              pgtype.UUID
+	ExpenseID       pgtype.UUID
+	UserID          pgtype.UUID
+	Amount          pgtype.Numeric
+	IsPaid          bool
+	PaidAt          pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	ReceiptData     pgtype.Text
+	ReceiptType     pgtype.Text
+	ReceiptFileName pgtype.Text
+	UserName        string
+	UserEmail       string
 }
 
 func (q *Queries) ListExpenseSplitsByExpense(ctx context.Context, expenseID pgtype.UUID) ([]ListExpenseSplitsByExpenseRow, error) {
@@ -150,6 +161,9 @@ func (q *Queries) ListExpenseSplitsByExpense(ctx context.Context, expenseID pgty
 			&i.IsPaid,
 			&i.PaidAt,
 			&i.CreatedAt,
+			&i.ReceiptData,
+			&i.ReceiptType,
+			&i.ReceiptFileName,
 			&i.UserName,
 			&i.UserEmail,
 		); err != nil {
@@ -164,7 +178,7 @@ func (q *Queries) ListExpenseSplitsByExpense(ctx context.Context, expenseID pgty
 }
 
 const listExpenseSplitsByExpenseIDs = `-- name: ListExpenseSplitsByExpenseIDs :many
-SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, u.name AS user_name, u.email AS user_email
+SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, es.receipt_data, es.receipt_type, es.receipt_file_name, u.name AS user_name, u.email AS user_email
 FROM expense_splits es
 JOIN users u ON u.id = es.user_id
 WHERE es.expense_id = ANY($1::uuid[])
@@ -172,15 +186,18 @@ ORDER BY es.expense_id, es.amount DESC
 `
 
 type ListExpenseSplitsByExpenseIDsRow struct {
-	ID        pgtype.UUID
-	ExpenseID pgtype.UUID
-	UserID    pgtype.UUID
-	Amount    pgtype.Numeric
-	IsPaid    bool
-	PaidAt    pgtype.Timestamptz
-	CreatedAt pgtype.Timestamptz
-	UserName  string
-	UserEmail string
+	ID              pgtype.UUID
+	ExpenseID       pgtype.UUID
+	UserID          pgtype.UUID
+	Amount          pgtype.Numeric
+	IsPaid          bool
+	PaidAt          pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	ReceiptData     pgtype.Text
+	ReceiptType     pgtype.Text
+	ReceiptFileName pgtype.Text
+	UserName        string
+	UserEmail       string
 }
 
 func (q *Queries) ListExpenseSplitsByExpenseIDs(ctx context.Context, dollar_1 []pgtype.UUID) ([]ListExpenseSplitsByExpenseIDsRow, error) {
@@ -200,6 +217,9 @@ func (q *Queries) ListExpenseSplitsByExpenseIDs(ctx context.Context, dollar_1 []
 			&i.IsPaid,
 			&i.PaidAt,
 			&i.CreatedAt,
+			&i.ReceiptData,
+			&i.ReceiptType,
+			&i.ReceiptFileName,
 			&i.UserName,
 			&i.UserEmail,
 		); err != nil {
@@ -214,7 +234,7 @@ func (q *Queries) ListExpenseSplitsByExpenseIDs(ctx context.Context, dollar_1 []
 }
 
 const listExpenseSplitsByUser = `-- name: ListExpenseSplitsByUser :many
-SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, e.description AS expense_description
+SELECT es.id, es.expense_id, es.user_id, es.amount, es.is_paid, es.paid_at, es.created_at, es.receipt_data, es.receipt_type, es.receipt_file_name, e.description AS expense_description
 FROM expense_splits es
 JOIN expenses e ON e.id = es.expense_id
 WHERE es.user_id = $1 AND e.group_id = $2
@@ -234,6 +254,9 @@ type ListExpenseSplitsByUserRow struct {
 	IsPaid             bool
 	PaidAt             pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz
+	ReceiptData        pgtype.Text
+	ReceiptType        pgtype.Text
+	ReceiptFileName    pgtype.Text
 	ExpenseDescription string
 }
 
@@ -254,6 +277,9 @@ func (q *Queries) ListExpenseSplitsByUser(ctx context.Context, arg ListExpenseSp
 			&i.IsPaid,
 			&i.PaidAt,
 			&i.CreatedAt,
+			&i.ReceiptData,
+			&i.ReceiptType,
+			&i.ReceiptFileName,
 			&i.ExpenseDescription,
 		); err != nil {
 			return nil, err
@@ -266,14 +292,29 @@ func (q *Queries) ListExpenseSplitsByUser(ctx context.Context, arg ListExpenseSp
 	return items, nil
 }
 
+type MarkExpenseSplitAsPaidParams struct {
+	ID              pgtype.UUID
+	ReceiptData     pgtype.Text
+	ReceiptType     pgtype.Text
+	ReceiptFileName pgtype.Text
+}
+
 const markExpenseSplitAsPaid = `-- name: MarkExpenseSplitAsPaid :exec
 UPDATE expense_splits
 SET is_paid = true,
-    paid_at = NOW()
+    paid_at = NOW(),
+    receipt_data = $2,
+    receipt_type = $3,
+    receipt_file_name = $4
 WHERE id = $1
 `
 
-func (q *Queries) MarkExpenseSplitAsPaid(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, markExpenseSplitAsPaid, id)
+func (q *Queries) MarkExpenseSplitAsPaid(ctx context.Context, arg MarkExpenseSplitAsPaidParams) error {
+	_, err := q.db.Exec(ctx, markExpenseSplitAsPaid,
+		arg.ID,
+		arg.ReceiptData,
+		arg.ReceiptType,
+		arg.ReceiptFileName,
+	)
 	return err
 }

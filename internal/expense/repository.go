@@ -78,6 +78,7 @@ func (r *ExpenseRepo) ListByGroupFull(ctx context.Context, groupID string, dateF
 			ParentExpenseID:  r.ParentExpenseID,
 			InstallmentIndex: r.InstallmentIndex,
 			InstallmentTotal: r.InstallmentTotal,
+			CreatedBy:        r.CreatedBy,
 			CreatedAt:        r.CreatedAt,
 			UpdatedAt:        r.UpdatedAt,
 		})
@@ -137,6 +138,7 @@ func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (E
 		ParentExpenseID:  db.UUIDFromStringPtr(params.ParentExpenseID),
 		InstallmentIndex: int4FromInt32Ptr(params.InstallmentIndex),
 		InstallmentTotal: int4FromInt32Ptr(params.InstallmentTotal),
+		CreatedBy:        db.UUIDFromStringPtr(params.CreatedBy),
 	})
 	if err != nil {
 		return Expense{}, err
@@ -201,6 +203,7 @@ func toExpense(e db.Expense) Expense {
 		ParentExpenseID:  db.UUIDToStringPtr(e.ParentExpenseID),
 		InstallmentIndex: installmentIndex,
 		InstallmentTotal: installmentTotal,
+		CreatedBy:        db.UUIDToStringPtr(e.CreatedBy),
 		CreatedAt:        e.CreatedAt.Time,
 		UpdatedAt:        e.UpdatedAt.Time,
 	}

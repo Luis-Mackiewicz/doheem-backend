@@ -68,6 +68,7 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	userID := r.Context().Value(UserIDKey).(string)
 	e, err := h.svc.Create(r.Context(), expense.CreateExpenseWithSplitsParams{
 		Expense: expense.CreateExpenseParams{
 			GroupID:        groupID,
@@ -81,6 +82,7 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 			Installments:   req.Installments,
 			FirstDueDate:   firstDueDate,
 			IsFixed:        req.IsFixed,
+			CreatedBy:      &userID,
 		},
 		Splits: splits,
 		CalcParams: expense.CalculateSplitsParams{
@@ -171,8 +173,29 @@ func (h *ExpenseHandler) ListByParent(w http.ResponseWriter, r *http.Request) {
 		handleError(w, r, err)
 		return
 	}
+
+	expenseIDs := make([]string, len(expenses))
+	for i, e := range expenses {
+		expenseIDs[i] = e.ID
+	}
+
+	splitsByExpense := make(map[string][]expenseSplitEmbeddedResponse)
+	if len(expenseIDs) > 0 {
+		splits, err := h.svc.ListSplitsByExpenseIDs(r.Context(), expenseIDs)
+		if err == nil {
+			for _, s := range toExpenseSplitEmbeddedResponses(splits) {
+				splitsByExpense[s.ExpenseID] = append(splitsByExpense[s.ExpenseID], s)
+			}
+		}
+	}
+
+	resp := make([]expenseResponse, len(expenses))
+	for i, e := range expenses {
+		resp[i] = toExpenseResponseWithSplits(e, splitsByExpense[e.ID])
+	}
+
 	limit, offset := parsePagination(r)
-	items, total := paginate(toExpenseResponses(expenses), limit, offset)
+	items, total := paginate(resp, limit, offset)
 	respondJSON(w, http.StatusOK, paginatedResponse{Data: items, Total: total})
 }
 
@@ -206,7 +229,7 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 		CompetenceDate *string  `json:"competence_date,omitempty"`
 		DueDate        *string  `json:"due_date,omitempty"`
 		CategoryID     *string  `json:"category_id,omitempty"`
-		SplitMode      *string  `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal custom"`
+		SplitMode      *string  `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal some custom"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
@@ -252,7 +275,21 @@ func (h *ExpenseHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *ExpenseHandler) MarkSplitAsPaid(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := h.svc.MarkSplitAsPaid(r.Context(), id); err != nil {
+	var req struct {
+		ReceiptData     *string `json:"receipt_data"`
+		ReceiptType     *string `json:"receipt_type"`
+		ReceiptFileName *string `json:"receipt_file_name"`
+	}
+	if errs := decodeAndValidate(r, &req); errs != nil {
+		respondValidationError(w, errs)
+		return
+	}
+	if err := h.svc.MarkSplitAsPaid(r.Context(), expense.MarkSplitAsPaidInput{
+		SplitID:         id,
+		ReceiptData:     req.ReceiptData,
+		ReceiptType:     req.ReceiptType,
+		ReceiptFileName: req.ReceiptFileName,
+	}); err != nil {
 		handleError(w, r, err)
 		return
 	}
@@ -320,18 +357,22 @@ type expenseResponse struct {
 	ParentExpenseID  *string                        `json:"parent_expense_id,omitempty"`
 	InstallmentIndex *int32                         `json:"installment_index,omitempty"`
 	InstallmentTotal *int32                         `json:"installment_total,omitempty"`
+	CreatedBy        *string                        `json:"created_by,omitempty"`
 	CreatedAt        string                         `json:"created_at"`
 	UpdatedAt        string                         `json:"updated_at"`
 }
 
 type expenseSplitEmbeddedResponse struct {
-	ID        string  `json:"id"`
-	ExpenseID string  `json:"expense_id"`
-	UserID    string  `json:"user_id"`
-	Amount    float64 `json:"amount"`
-	IsPaid    bool    `json:"is_paid"`
-	UserName  string  `json:"user_name"`
-	UserEmail string  `json:"user_email"`
+	ID              string  `json:"id"`
+	ExpenseID       string  `json:"expense_id"`
+	UserID          string  `json:"user_id"`
+	Amount          float64 `json:"amount"`
+	IsPaid          bool    `json:"is_paid"`
+	UserName        string  `json:"user_name"`
+	UserEmail       string  `json:"user_email"`
+	ReceiptData     *string `json:"receipt_data,omitempty"`
+	ReceiptType     *string `json:"receipt_type,omitempty"`
+	ReceiptFileName *string `json:"receipt_file_name,omitempty"`
 }
 
 type expenseSplitResponse struct {
@@ -344,14 +385,17 @@ type expenseSplitResponse struct {
 }
 
 type expenseSplitWithUserResponse struct {
-	ID        string  `json:"id"`
-	ExpenseID string  `json:"expense_id"`
-	UserID    string  `json:"user_id"`
-	Amount    float64 `json:"amount"`
-	IsPaid    bool    `json:"is_paid"`
-	CreatedAt string  `json:"created_at"`
-	UserName  string  `json:"user_name"`
-	UserEmail string  `json:"user_email"`
+	ID              string  `json:"id"`
+	ExpenseID       string  `json:"expense_id"`
+	UserID          string  `json:"user_id"`
+	Amount          float64 `json:"amount"`
+	IsPaid          bool    `json:"is_paid"`
+	CreatedAt       string  `json:"created_at"`
+	UserName        string  `json:"user_name"`
+	UserEmail       string  `json:"user_email"`
+	ReceiptData     *string `json:"receipt_data,omitempty"`
+	ReceiptType     *string `json:"receipt_type,omitempty"`
+	ReceiptFileName *string `json:"receipt_file_name,omitempty"`
 }
 
 type categoryResponse struct {
@@ -377,6 +421,7 @@ func toExpenseResponse(e expense.Expense) expenseResponse {
 		ParentExpenseID:  e.ParentExpenseID,
 		InstallmentIndex: e.InstallmentIndex,
 		InstallmentTotal: e.InstallmentTotal,
+		CreatedBy:        e.CreatedBy,
 		CreatedAt:        e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:        e.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -405,13 +450,16 @@ func toExpenseResponses(expenses []expense.Expense) []expenseResponse {
 
 func toExpenseSplitEmbeddedResponse(s expense.ExpenseSplitWithUser) expenseSplitEmbeddedResponse {
 	return expenseSplitEmbeddedResponse{
-		ID:        s.ID,
-		ExpenseID: s.ExpenseID,
-		UserID:    s.UserID,
-		Amount:    s.Amount,
-		IsPaid:    s.IsPaid,
-		UserName:  s.UserName,
-		UserEmail: s.UserEmail,
+		ID:              s.ID,
+		ExpenseID:       s.ExpenseID,
+		UserID:          s.UserID,
+		Amount:          s.Amount,
+		IsPaid:          s.IsPaid,
+		UserName:        s.UserName,
+		UserEmail:       s.UserEmail,
+		ReceiptData:     s.ReceiptData,
+		ReceiptType:     s.ReceiptType,
+		ReceiptFileName: s.ReceiptFileName,
 	}
 }
 
@@ -438,14 +486,17 @@ func toExpenseSplitResponses(splits []expense.ExpenseSplitWithUser) []expenseSpl
 	res := make([]expenseSplitWithUserResponse, len(splits))
 	for i, s := range splits {
 		res[i] = expenseSplitWithUserResponse{
-			ID:        s.ID,
-			ExpenseID: s.ExpenseID,
-			UserID:    s.UserID,
-			Amount:    s.Amount,
-			IsPaid:    s.IsPaid,
-			CreatedAt: s.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UserName:  s.UserName,
-			UserEmail: s.UserEmail,
+			ID:              s.ID,
+			ExpenseID:       s.ExpenseID,
+			UserID:          s.UserID,
+			Amount:          s.Amount,
+			IsPaid:          s.IsPaid,
+			CreatedAt:       s.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UserName:        s.UserName,
+			UserEmail:       s.UserEmail,
+			ReceiptData:     s.ReceiptData,
+			ReceiptType:     s.ReceiptType,
+			ReceiptFileName: s.ReceiptFileName,
 		}
 	}
 	return res

@@ -49,11 +49,15 @@ func toHTTPStatus(err error) int {
 		errors.Is(err, user.ErrPhoneAlreadyExists),
 		errors.Is(err, group.ErrMemberAlreadyExists),
 		errors.Is(err, group.ErrGroupFull),
-		errors.Is(err, expense.ErrCannotDeleteWithPaidSplits):
+		errors.Is(err, expense.ErrCannotDeleteWithPaidSplits),
+		errors.Is(err, expense.ErrCannotEditWithPaidSplits),
+		errors.Is(err, expense.ErrSplitAlreadyPaid):
 		return http.StatusConflict
 
 	case
 		errors.Is(err, expense.ErrInvalidSplitTotal),
+		errors.Is(err, expense.ErrCannotEditInstallmentChild),
+		errors.Is(err, expense.ErrCannotEditInstallmentParent),
 		errors.Is(err, task.ErrInvalidDueDate),
 		errors.Is(err, notification.ErrReminderLimitExceeded),
 		errors.Is(err, notification.ErrReminderTooSoon),

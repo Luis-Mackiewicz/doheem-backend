@@ -53,13 +53,23 @@ func TestMain(m *testing.M) {
 		panic("failed to connect to database: " + err.Error())
 	}
 
-	migration, err := os.ReadFile("../db/migrations/001_init.up.sql")
-	if err != nil {
-		panic("failed to read migration file: " + err.Error())
+	migrations := []string{
+		"../db/migrations/001_init.up.sql",
+		"../db/migrations/002_alter_users_not_null.up.sql",
+		"../db/migrations/003_drop_group_cnpj_cep.up.sql",
+		"../db/migrations/004_add_parent_expense_id_index.up.sql",
+		"../db/migrations/005_add_expense_composite_index.up.sql",
+		"../db/migrations/006_add_receipt_to_splits.up.sql",
+		"../db/migrations/007_add_created_by_to_expenses.up.sql",
 	}
-
-	if _, err := pool.Exec(ctx, string(migration)); err != nil {
-		panic("failed to run migration: " + err.Error())
+	for _, path := range migrations {
+		migration, err := os.ReadFile(path)
+		if err != nil {
+			panic("failed to read migration file " + path + ": " + err.Error())
+		}
+		if _, err := pool.Exec(ctx, string(migration)); err != nil {
+			panic("failed to run migration " + path + ": " + err.Error())
+		}
 	}
 
 	if err := pool.Ping(ctx); err != nil {

@@ -110,8 +110,8 @@ func (m *mockExpenseSplitRepo) CreateMany(ctx context.Context, expenseID string,
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *mockExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string) error {
-	args := m.Called(ctx, id)
+func (m *mockExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string, receiptData, receiptType, receiptFileName *string) error {
+	args := m.Called(ctx, id, receiptData, receiptType, receiptFileName)
 	return args.Error(0)
 }
 
@@ -364,9 +364,10 @@ func TestExpenseService_MarkSplitAsPaid(t *testing.T) {
 	svc := NewExpenseService(new(mockExpenseRepo), mockSplit, new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
-	mockSplit.On("MarkAsPaid", ctx, "s1").Return(nil)
+	mockSplit.On("GetByID", ctx, "s1").Return(ExpenseSplit{IsPaid: false}, nil)
+	mockSplit.On("MarkAsPaid", ctx, "s1", (*string)(nil), (*string)(nil), (*string)(nil)).Return(nil)
 
-	err := svc.MarkSplitAsPaid(ctx, "s1")
+	err := svc.MarkSplitAsPaid(ctx, MarkSplitAsPaidInput{SplitID: "s1"})
 
 	assert.NoError(t, err)
 }
@@ -404,7 +405,11 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 		return p.ParentExpenseID != nil && *p.ParentExpenseID == parentID
 	})).Return(Expense{}, nil).Times(2)
 
-	mockSplit.On("CreateMany", ctx, parentID, splits).Return(int64(2), nil)
+	childSplits := []CreateExpenseSplitParams{
+		{UserID: "u1", Amount: 25},
+		{UserID: "u2", Amount: 25},
+	}
+	mockSplit.On("CreateMany", ctx, "", childSplits).Return(int64(2), nil).Times(2)
 
 	expense, err := svc.Create(ctx, params)
 

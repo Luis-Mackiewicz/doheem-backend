@@ -66,55 +66,80 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 		parent.ParentExpenseID = nil
 		parent.InstallmentIndex = nil
 		parent.InstallmentTotal = nil
-		expense, err := s.expenseRepo.Create(ctx, parent)
+		parentExpense, err := s.expenseRepo.Create(ctx, parent)
 		if err != nil {
 			return Expense{}, err
 		}
 
-		installmentAmount := expense.Amount / float64(expense.Installments)
-		for i := int32(1); i <= expense.Installments; i++ {
+		installmentCount := parentExpense.Installments
+		installmentBase := math.Round(parentExpense.Amount*100/float64(installmentCount)) / 100
+
+		for i := int32(1); i <= installmentCount; i++ {
 			index := i
-			total := expense.Installments
+			total := installmentCount
 			childParams := params.Expense
-			childParams.Amount = installmentAmount
-			childParams.DueDate = expense.FirstDueDate.AddDate(0, int(i-1), 0)
+			if i == installmentCount {
+				childParams.Amount = parentExpense.Amount - installmentBase*float64(installmentCount-1)
+				childParams.Amount = math.Round(childParams.Amount*100) / 100
+			} else {
+				childParams.Amount = installmentBase
+			}
+			childParams.DueDate = parentExpense.FirstDueDate.AddDate(0, int(i-1), 0)
 			childParams.Installments = 1
 			childParams.FirstDueDate = nil
 			childParams.IsFixed = false
-			childParams.ParentExpenseID = &expense.ID
+			childParams.ParentExpenseID = &parentExpense.ID
 			childParams.InstallmentIndex = &index
 			childParams.InstallmentTotal = &total
 
-			_, err := s.expenseRepo.Create(ctx, childParams)
-			if err != nil {
-				return Expense{}, err
-			}
-		}
-
-		if len(params.Splits) > 0 {
-			_, err = s.expenseSplitRepo.CreateMany(ctx, expense.ID, params.Splits)
+			child, err := s.expenseRepo.Create(ctx, childParams)
 			if err != nil {
 				return Expense{}, err
 			}
 
-			for _, sp := range params.Splits {
-				if sp.UserID == params.Expense.PaidBy {
-					continue
+			if len(params.Splits) > 0 {
+				childSplits := make([]CreateExpenseSplitParams, len(params.Splits))
+				for j, sp := range params.Splits {
+					splitAmount := sp.Amount / float64(installmentCount)
+					if i == installmentCount {
+						remaining := sp.Amount - splitAmount*float64(installmentCount-1)
+						splitAmount = math.Round(remaining*100) / 100
+					} else {
+						splitAmount = math.Round(splitAmount*100) / 100
+					}
+					childSplits[j] = CreateExpenseSplitParams{
+						UserID: sp.UserID,
+						Amount: splitAmount,
+					}
 				}
-				title := fmt.Sprintf("Nova despesa: %s", params.Expense.Description)
-				message := fmt.Sprintf("R$ %.2f (parcelada) — sua cota: R$ %.2f", params.Expense.Amount, sp.Amount)
-				relatedID := &expense.ID
-				s.notifRepo.Create(ctx, notification.CreateNotificationParams{
-					UserID:    sp.UserID,
-					Type:      "expense",
-					Title:     title,
-					Message:   message,
-					RelatedID: relatedID,
-				})
+
+				_, err = s.expenseSplitRepo.CreateMany(ctx, child.ID, childSplits)
+				if err != nil {
+					return Expense{}, err
+				}
+
+				if i == 1 {
+					for _, sp := range params.Splits {
+						if sp.UserID == params.Expense.PaidBy {
+							continue
+						}
+						installmentSplit := math.Round(sp.Amount/float64(installmentCount)*100) / 100
+						title := fmt.Sprintf("Nova despesa: %s", params.Expense.Description)
+						message := fmt.Sprintf("R$ %.2f (%dx de R$ %.2f) — sua cota: R$ %.2f/mês", params.Expense.Amount, installmentCount, installmentBase, installmentSplit)
+						relatedID := &child.ID
+						s.notifRepo.Create(ctx, notification.CreateNotificationParams{
+							UserID:    sp.UserID,
+							Type:      "expense",
+							Title:     title,
+							Message:   message,
+							RelatedID: relatedID,
+						})
+					}
+				}
 			}
 		}
 
-		return expense, nil
+		return parentExpense, nil
 	}
 
 	expense, err := s.expenseRepo.Create(ctx, params.Expense)
@@ -228,11 +253,26 @@ func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExp
 		return Expense{}, ErrExpenseNotFound
 	}
 
-	if expense.PaidBy != userID {
+	if expense.PaidBy != userID && (expense.CreatedBy == nil || *expense.CreatedBy != userID) {
 		member, err := s.memberRepo.Get(ctx, expense.GroupID, userID)
 		if err != nil || !member.IsAdmin {
 			return Expense{}, ErrForbidden
 		}
+	}
+
+	if expense.ParentExpenseID != nil {
+		return Expense{}, ErrCannotEditInstallmentChild
+	}
+	if expense.Installments > 1 {
+		return Expense{}, ErrCannotEditInstallmentParent
+	}
+
+	hasPaid, err := s.expenseSplitRepo.HasPaidSplits(ctx, id)
+	if err != nil {
+		return Expense{}, err
+	}
+	if hasPaid {
+		return Expense{}, ErrCannotEditWithPaidSplits
 	}
 
 	return s.expenseRepo.Update(ctx, id, params)
@@ -244,16 +284,36 @@ func (s *ExpenseService) Delete(ctx context.Context, id, userID string) error {
 		return ErrExpenseNotFound
 	}
 
-	if expense.PaidBy != userID {
+	if expense.PaidBy != userID && (expense.CreatedBy == nil || *expense.CreatedBy != userID) {
 		member, err := s.memberRepo.Get(ctx, expense.GroupID, userID)
 		if err != nil || !member.IsAdmin {
 			return ErrForbidden
 		}
 	}
 
-	hasPaid, err := s.expenseSplitRepo.HasPaidSplits(ctx, id)
-	if err == nil && hasPaid {
-		return ErrCannotDeleteWithPaidSplits
+	if expense.ParentExpenseID == nil && expense.Installments > 1 {
+		children, err := s.expenseRepo.ListByParent(ctx, id)
+		if err != nil {
+			return err
+		}
+		for _, child := range children {
+			hasPaid, err := s.expenseSplitRepo.HasPaidSplits(ctx, child.ID)
+			if err != nil {
+				return err
+			}
+			if hasPaid {
+				return ErrCannotDeleteWithPaidSplits
+			}
+		}
+	} else {
+		hasPaid, err := s.expenseSplitRepo.HasPaidSplits(ctx, id)
+		if err == nil && hasPaid {
+			return ErrCannotDeleteWithPaidSplits
+		}
+	}
+
+	if err := s.expenseRepo.DeleteByParent(ctx, id); err != nil {
+		return err
 	}
 
 	return s.expenseRepo.Delete(ctx, id)
@@ -267,8 +327,48 @@ func (s *ExpenseService) GetUserBalance(ctx context.Context, userID, groupID str
 	return s.expenseSplitRepo.GetUserBalance(ctx, userID, groupID)
 }
 
-func (s *ExpenseService) MarkSplitAsPaid(ctx context.Context, splitID string) error {
-	return s.expenseSplitRepo.MarkAsPaid(ctx, splitID)
+type MarkSplitAsPaidInput struct {
+	SplitID         string
+	ReceiptData     *string
+	ReceiptType     *string
+	ReceiptFileName *string
+}
+
+func validateReceipt(receiptData, receiptType, receiptFileName *string) error {
+	if receiptData == nil && receiptType == nil && receiptFileName == nil {
+		return nil
+	}
+	if receiptData == nil || receiptType == nil || receiptFileName == nil {
+		return errors.New("forneça receipt_data, receipt_type e receipt_file_name juntos")
+	}
+	allowedTypes := map[string]bool{
+		"image/jpeg": true, "image/png": true, "image/webp": true,
+		"application/pdf": true,
+	}
+	if !allowedTypes[*receiptType] {
+		return fmt.Errorf("tipo de arquivo não permitido: %s", *receiptType)
+	}
+	maxSize := 5 * 1024 * 1024
+	if len(*receiptData) > maxSize {
+		return fmt.Errorf("arquivo muito grande: máximo %d bytes", maxSize)
+	}
+	return nil
+}
+
+func (s *ExpenseService) MarkSplitAsPaid(ctx context.Context, input MarkSplitAsPaidInput) error {
+	if err := validateReceipt(input.ReceiptData, input.ReceiptType, input.ReceiptFileName); err != nil {
+		return err
+	}
+
+	split, err := s.expenseSplitRepo.GetByID(ctx, input.SplitID)
+	if err != nil {
+		return ErrExpenseNotFound
+	}
+	if split.IsPaid {
+		return ErrSplitAlreadyPaid
+	}
+
+	return s.expenseSplitRepo.MarkAsPaid(ctx, input.SplitID, input.ReceiptData, input.ReceiptType, input.ReceiptFileName)
 }
 
 func (s *ExpenseService) ListSplitsByExpense(ctx context.Context, expenseID string) ([]ExpenseSplitWithUser, error) {

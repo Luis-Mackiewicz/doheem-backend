@@ -16,6 +16,7 @@ SELECT COUNT(*) FROM expenses
 WHERE group_id = $1
   AND ($2::DATE IS NULL OR competence_date >= $2)
   AND ($3::DATE IS NULL OR competence_date <= $3)
+  AND (installments = 1 OR parent_expense_id IS NOT NULL)
 `
 
 type CountExpensesByGroupParams struct {
@@ -32,9 +33,9 @@ func (q *Queries) CountExpensesByGroup(ctx context.Context, arg CountExpensesByG
 }
 
 const createExpense = `-- name: CreateExpense :one
-INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at
+INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at
 `
 
 type CreateExpenseParams struct {
@@ -52,6 +53,7 @@ type CreateExpenseParams struct {
 	ParentExpenseID  pgtype.UUID
 	InstallmentIndex pgtype.Int4
 	InstallmentTotal pgtype.Int4
+	CreatedBy        pgtype.UUID
 }
 
 func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expense, error) {
@@ -70,6 +72,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		arg.ParentExpenseID,
 		arg.InstallmentIndex,
 		arg.InstallmentTotal,
+		arg.CreatedBy,
 	)
 	var i Expense
 	err := row.Scan(
@@ -88,6 +91,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		&i.ParentExpenseID,
 		&i.InstallmentIndex,
 		&i.InstallmentTotal,
+		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -115,7 +119,7 @@ func (q *Queries) DeleteExpensesByParent(ctx context.Context, parentExpenseID pg
 }
 
 const getExpenseByID = `-- name: GetExpenseByID :one
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
 WHERE id = $1
 `
 
@@ -138,6 +142,7 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 		&i.ParentExpenseID,
 		&i.InstallmentIndex,
 		&i.InstallmentTotal,
+		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -145,7 +150,7 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 }
 
 const listExpensesByGroupFull = `-- name: ListExpensesByGroupFull :many
-SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_at, e.updated_at, COUNT(*) OVER() AS total_count
+SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_by, e.created_at, e.updated_at, COUNT(*) OVER() AS total_count
 FROM expenses e
 WHERE e.group_id = $1
   AND ($2::DATE IS NULL OR e.competence_date >= $2)
@@ -154,6 +159,7 @@ WHERE e.group_id = $1
   AND ($5::UUID IS NULL OR EXISTS (
     SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id AND es.user_id = $5
   ))
+  AND (e.installments = 1 OR e.parent_expense_id IS NOT NULL)
 ORDER BY e.competence_date DESC, e.created_at DESC
 LIMIT $6 OFFSET $7
 `
@@ -184,6 +190,7 @@ type ListExpensesByGroupFullRow struct {
 	ParentExpenseID  pgtype.UUID
 	InstallmentIndex pgtype.Int4
 	InstallmentTotal pgtype.Int4
+	CreatedBy        pgtype.UUID
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
 	TotalCount       int64
@@ -222,6 +229,7 @@ func (q *Queries) ListExpensesByGroupFull(ctx context.Context, arg ListExpensesB
 			&i.ParentExpenseID,
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -239,6 +247,7 @@ func (q *Queries) ListExpensesByGroupFull(ctx context.Context, arg ListExpensesB
 const getTotalExpensesByGroup = `-- name: GetTotalExpensesByGroup :one
 SELECT COALESCE(SUM(amount), 0)::NUMERIC(12,2) FROM expenses
 WHERE group_id = $1
+  AND (installments = 1 OR parent_expense_id IS NOT NULL)
 `
 
 func (q *Queries) GetTotalExpensesByGroup(ctx context.Context, groupID pgtype.UUID) (pgtype.Numeric, error) {
@@ -249,7 +258,7 @@ func (q *Queries) GetTotalExpensesByGroup(ctx context.Context, groupID pgtype.UU
 }
 
 const listExpensesByCategory = `-- name: ListExpensesByCategory :many
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
 WHERE category_id = $1
 ORDER BY competence_date DESC
 `
@@ -279,6 +288,7 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 			&i.ParentExpenseID,
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -293,10 +303,11 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 }
 
 const listExpensesByGroup = `-- name: ListExpensesByGroup :many
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
 WHERE group_id = $1
   AND ($2::DATE IS NULL OR competence_date >= $2)
   AND ($3::DATE IS NULL OR competence_date <= $3)
+  AND (installments = 1 OR parent_expense_id IS NOT NULL)
 ORDER BY competence_date DESC, created_at DESC
 LIMIT $4 OFFSET $5
 `
@@ -334,6 +345,7 @@ func (q *Queries) ListExpensesByGroup(ctx context.Context, arg ListExpensesByGro
 			&i.ParentExpenseID,
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -348,7 +360,7 @@ func (q *Queries) ListExpensesByGroup(ctx context.Context, arg ListExpensesByGro
 }
 
 const listExpensesByParent = `-- name: ListExpensesByParent :many
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
 WHERE parent_expense_id = $1
 ORDER BY installment_index
 `
@@ -378,6 +390,7 @@ func (q *Queries) ListExpensesByParent(ctx context.Context, parentExpenseID pgty
 			&i.ParentExpenseID,
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -392,7 +405,7 @@ func (q *Queries) ListExpensesByParent(ctx context.Context, parentExpenseID pgty
 }
 
 const listExpensesByUser = `-- name: ListExpensesByUser :many
-SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_at, e.updated_at FROM expenses e
+SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_by, e.created_at, e.updated_at FROM expenses e
 JOIN expense_splits es ON es.expense_id = e.id
 WHERE es.user_id = $1
 ORDER BY e.competence_date DESC, e.created_at DESC
@@ -423,6 +436,7 @@ func (q *Queries) ListExpensesByUser(ctx context.Context, userID pgtype.UUID) ([
 			&i.ParentExpenseID,
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
+			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -446,7 +460,7 @@ SET description = COALESCE($2, description),
     split_mode = COALESCE($7, split_mode),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_at, updated_at
+RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at
 `
 
 type UpdateExpenseParams struct {
@@ -486,6 +500,7 @@ func (q *Queries) UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (E
 		&i.ParentExpenseID,
 		&i.InstallmentIndex,
 		&i.InstallmentTotal,
+		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

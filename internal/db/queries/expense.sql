@@ -7,6 +7,7 @@ SELECT * FROM expenses
 WHERE group_id = $1
   AND ($2::DATE IS NULL OR competence_date >= $2)
   AND ($3::DATE IS NULL OR competence_date <= $3)
+  AND (installments = 1 OR parent_expense_id IS NOT NULL)
 ORDER BY competence_date DESC, created_at DESC
 LIMIT $4 OFFSET $5;
 
@@ -20,6 +21,7 @@ WHERE e.group_id = $1
   AND ($5::UUID IS NULL OR EXISTS (
     SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id AND es.user_id = $5
   ))
+  AND (e.installments = 1 OR e.parent_expense_id IS NOT NULL)
 ORDER BY e.competence_date DESC, e.created_at DESC
 LIMIT $6 OFFSET $7;
 
@@ -27,7 +29,8 @@ LIMIT $6 OFFSET $7;
 SELECT COUNT(*) FROM expenses
 WHERE group_id = $1
   AND ($2::DATE IS NULL OR competence_date >= $2)
-  AND ($3::DATE IS NULL OR competence_date <= $3);
+  AND ($3::DATE IS NULL OR competence_date <= $3)
+  AND (installments = 1 OR parent_expense_id IS NOT NULL);
 
 -- name: ListExpensesByUser :many
 SELECT e.* FROM expenses e
@@ -41,8 +44,8 @@ WHERE category_id = $1
 ORDER BY competence_date DESC;
 
 -- name: CreateExpense :one
-INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: UpdateExpense :one
@@ -63,7 +66,8 @@ WHERE id = $1;
 
 -- name: GetTotalExpensesByGroup :one
 SELECT COALESCE(SUM(amount), 0)::NUMERIC(12,2) FROM expenses
-WHERE group_id = $1;
+WHERE group_id = $1
+  AND (installments = 1 OR parent_expense_id IS NOT NULL);
 
 -- name: ListExpensesByParent :many
 SELECT * FROM expenses
