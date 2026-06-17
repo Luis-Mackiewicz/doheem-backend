@@ -48,12 +48,14 @@ type CreateExpenseParams struct {
 }
 
 type UpdateExpenseParams struct {
-	Description    *string
-	Amount         *float64
-	CompetenceDate *time.Time
-	DueDate        *time.Time
-	CategoryID     *string
-	SplitMode      *string
+	Description     *string
+	Amount          *float64
+	CompetenceDate  *time.Time
+	DueDate         *time.Time
+	CategoryID      *string
+	SplitMode       *string
+	SelectedUserIDs []string
+	Splits          []CreateExpenseSplitParams
 }
 
 type ExpenseCategory struct {
@@ -154,5 +156,6 @@ var (
 	ErrNoSelectedMembers          = errors.New("select at least 2 members for some split")
 	ErrSplitAlreadyPaid           = errors.New("split already paid")
 	ErrCannotEditInstallmentChild = errors.New("cannot edit an installment child expense directly")
-	ErrCannotEditInstallmentParent = errors.New("cannot edit an installment parent expense directly")
+	ErrCannotEditInstallmentParent    = errors.New("cannot edit an installment parent expense directly")
+	ErrFixedWithInstallments          = errors.New("cannot create a fixed expense with installments")
 )

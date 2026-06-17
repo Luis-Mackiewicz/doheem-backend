@@ -58,6 +58,7 @@ func toHTTPStatus(err error) int {
 		errors.Is(err, expense.ErrInvalidSplitTotal),
 		errors.Is(err, expense.ErrCannotEditInstallmentChild),
 		errors.Is(err, expense.ErrCannotEditInstallmentParent),
+		errors.Is(err, expense.ErrFixedWithInstallments),
 		errors.Is(err, task.ErrInvalidDueDate),
 		errors.Is(err, notification.ErrReminderLimitExceeded),
 		errors.Is(err, notification.ErrReminderTooSoon),

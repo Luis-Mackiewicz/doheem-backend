@@ -37,6 +37,10 @@ func NewExpenseService(
 }
 
 func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSplitsParams) (Expense, error) {
+	if params.Expense.IsFixed && params.Expense.Installments > 1 {
+		return Expense{}, ErrFixedWithInstallments
+	}
+
 	if len(params.Splits) == 0 && params.CalcParams.SplitMode != "" {
 		calculated, err := s.CalculateSplits(ctx, params.CalcParams)
 		if err != nil {
@@ -49,7 +53,7 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 	for _, sp := range params.Splits {
 		totalFromSplits += sp.Amount
 	}
-	if totalFromSplits > 0 && totalFromSplits != params.Expense.Amount {
+	if totalFromSplits > 0 && math.Abs(totalFromSplits-params.Expense.Amount) > 0.005 {
 		return Expense{}, ErrInvalidSplitTotal
 	}
 
@@ -276,6 +280,86 @@ func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExp
 		return Expense{}, ErrCannotEditWithPaidSplits
 	}
 
+	finalAmount := expense.Amount
+	if params.Amount != nil {
+		finalAmount = *params.Amount
+	}
+	finalMode := expense.SplitMode
+	if params.SplitMode != nil {
+		finalMode = *params.SplitMode
+	}
+
+	modeChanged := params.SplitMode != nil && finalMode != expense.SplitMode
+	amountChanged := params.Amount != nil && finalAmount != expense.Amount
+
+	if modeChanged || amountChanged {
+		existingSplits, _ := s.expenseSplitRepo.ListByExpense(ctx, id)
+
+		if err := s.expenseSplitRepo.DeleteByExpense(ctx, id); err != nil {
+			return Expense{}, err
+		}
+
+		var splits []CreateExpenseSplitParams
+		switch finalMode {
+		case "equal":
+			splits, err = s.CalculateSplits(ctx, CalculateSplitsParams{
+				GroupID:   expense.GroupID,
+				Amount:    finalAmount,
+				SplitMode: "equal",
+			})
+		case "some":
+			userIDs := params.SelectedUserIDs
+			if len(userIDs) == 0 {
+				for _, sp := range existingSplits {
+					userIDs = append(userIDs, sp.UserID)
+				}
+			}
+			if len(userIDs) < 2 {
+				return Expense{}, ErrNoSelectedMembers
+			}
+			splits = splitEqually(finalAmount, userIDs)
+		case "custom":
+			customSplits := params.Splits
+			if len(customSplits) == 0 && amountChanged && !modeChanged {
+				for _, sp := range existingSplits {
+					scaled := math.Round(sp.Amount/expense.Amount*finalAmount*100) / 100
+					customSplits = append(customSplits, CreateExpenseSplitParams{
+						UserID: sp.UserID,
+						Amount: scaled,
+					})
+				}
+				if len(customSplits) > 0 {
+					var total float64
+					for _, sp := range customSplits {
+						total += sp.Amount
+					}
+					customSplits[0].Amount = math.Round((customSplits[0].Amount+finalAmount-total)*100) / 100
+				}
+			}
+			if len(customSplits) == 0 {
+				return Expense{}, ErrInvalidSplitMode
+			}
+			var total float64
+			for _, sp := range customSplits {
+				total += sp.Amount
+			}
+			if math.Abs(total-finalAmount) > 0.005 {
+				return Expense{}, ErrInvalidSplitTotal
+			}
+			splits = customSplits
+		default:
+			return Expense{}, ErrInvalidSplitMode
+		}
+		if err != nil {
+			return Expense{}, err
+		}
+		if len(splits) > 0 {
+			if _, err := s.expenseSplitRepo.CreateMany(ctx, id, splits); err != nil {
+				return Expense{}, err
+			}
+		}
+	}
+
 	return s.expenseRepo.Update(ctx, id, params)
 }
 
@@ -345,8 +429,8 @@ func (s *ExpenseService) AutoRestoreFixedExpenses(ctx context.Context) error {
 			continue
 		}
 
-		cloneDue := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
-		cloneCompetence := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
+	cloneDue := sameDayInMonth(origin.DueDate, currentYear, currentMonth)
+	cloneCompetence := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
 
 		cloneParams := CreateExpenseParams{
 			GroupID:        origin.GroupID,

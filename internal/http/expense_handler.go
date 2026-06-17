@@ -224,23 +224,38 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
-		Description    *string  `json:"description,omitempty"`
-		Amount         *float64 `json:"amount,omitempty"         validate:"omitempty,gt=0"`
-		CompetenceDate *string  `json:"competence_date,omitempty"`
-		DueDate        *string  `json:"due_date,omitempty"`
-		CategoryID     *string  `json:"category_id,omitempty"`
-		SplitMode      *string  `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal some custom"`
+		Description     *string  `json:"description,omitempty"`
+		Amount          *float64 `json:"amount,omitempty"         validate:"omitempty,gt=0"`
+		CompetenceDate  *string  `json:"competence_date,omitempty"`
+		DueDate         *string  `json:"due_date,omitempty"`
+		CategoryID      *string  `json:"category_id,omitempty"`
+		SplitMode       *string  `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal some custom"`
+		SelectedUserIDs []string `json:"selected_user_ids,omitempty"`
+		Splits          []struct {
+			UserID string  `json:"user_id" validate:"required"`
+			Amount float64 `json:"amount"   validate:"required,gt=0"`
+		} `json:"splits,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
 
+	splitParams := make([]expense.CreateExpenseSplitParams, len(req.Splits))
+	for i, s := range req.Splits {
+		splitParams[i] = expense.CreateExpenseSplitParams{
+			UserID: s.UserID,
+			Amount: s.Amount,
+		}
+	}
+
 	params := expense.UpdateExpenseParams{
-		Description: req.Description,
-		Amount:      req.Amount,
-		SplitMode:   req.SplitMode,
-		CategoryID:  req.CategoryID,
+		Description:     req.Description,
+		Amount:          req.Amount,
+		SplitMode:       req.SplitMode,
+		CategoryID:      req.CategoryID,
+		SelectedUserIDs: req.SelectedUserIDs,
+		Splits:          splitParams,
 	}
 	if req.CompetenceDate != nil {
 		t, err := time.Parse("2006-01-02", *req.CompetenceDate)
