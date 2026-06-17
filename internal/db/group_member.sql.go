@@ -90,7 +90,7 @@ func (q *Queries) GetGroupMemberByID(ctx context.Context, id pgtype.UUID) (Group
 }
 
 const listGroupMembers = `-- name: ListGroupMembers :many
-SELECT gm.id, gm.group_id, gm.user_id, gm.is_admin, gm.joined_at, u.name, u.email, u.avatar_url
+SELECT gm.id, gm.group_id, gm.user_id, gm.is_admin, gm.joined_at, u.name, u.email, u.avatar_url, u.phone
 FROM group_members gm
 JOIN users u ON u.id = gm.user_id
 WHERE gm.group_id = $1
@@ -106,6 +106,7 @@ type ListGroupMembersRow struct {
 	Name      string
 	Email     string
 	AvatarUrl pgtype.Text
+	Phone     pgtype.Text
 }
 
 func (q *Queries) ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]ListGroupMembersRow, error) {
@@ -126,6 +127,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID pgtype.UUID) ([]
 			&i.Name,
 			&i.Email,
 			&i.AvatarUrl,
+			&i.Phone,
 		); err != nil {
 			return nil, err
 		}

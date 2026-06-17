@@ -101,6 +101,7 @@ func toGroupMemberWithUser(row db.ListGroupMembersRow) GroupMemberWithUser {
 		},
 		UserName:  row.Name,
 		UserEmail: row.Email,
+		UserPhone: db.TextToStringPtr(row.Phone),
 		AvatarURL: db.TextToStringPtr(row.AvatarUrl),
 	}
 }

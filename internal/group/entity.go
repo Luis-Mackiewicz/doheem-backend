@@ -40,6 +40,7 @@ type GroupMemberWithUser struct {
 	GroupMember
 	UserName  string
 	UserEmail string
+	UserPhone *string
 	AvatarURL *string
 }
 

@@ -226,6 +226,7 @@ type groupMemberWithUserResponse struct {
 	JoinedAt  string  `json:"joined_at"`
 	UserName  string  `json:"user_name"`
 	UserEmail string  `json:"user_email"`
+	UserPhone *string `json:"user_phone,omitempty"`
 	AvatarURL *string `json:"avatar_url,omitempty"`
 }
 
@@ -271,6 +272,7 @@ func toGroupMemberResponses(members []group.GroupMemberWithUser) []groupMemberWi
 			JoinedAt:  m.JoinedAt.Format("2006-01-02T15:04:05Z07:00"),
 			UserName:  m.UserName,
 			UserEmail: m.UserEmail,
+			UserPhone: m.UserPhone,
 			AvatarURL: m.AvatarURL,
 		}
 	}
