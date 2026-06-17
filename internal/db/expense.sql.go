@@ -164,7 +164,7 @@ WHERE e.group_id = $1
     SELECT 1 FROM expense_splits es WHERE es.expense_id = e.id AND es.user_id = $5
   ))
   AND (e.installments = 1 OR e.parent_expense_id IS NOT NULL)
-ORDER BY e.competence_date DESC, e.created_at DESC
+ORDER BY (e.is_fixed OR e.fixed_source_id IS NOT NULL) DESC, e.competence_date DESC, e.created_at DESC
 LIMIT $6 OFFSET $7
 `
 
@@ -315,7 +315,7 @@ WHERE group_id = $1
   AND ($2::DATE IS NULL OR competence_date >= $2)
   AND ($3::DATE IS NULL OR competence_date <= $3)
   AND (installments = 1 OR parent_expense_id IS NOT NULL)
-ORDER BY competence_date DESC, created_at DESC
+ORDER BY (is_fixed OR fixed_source_id IS NOT NULL) DESC, competence_date DESC, created_at DESC
 LIMIT $4 OFFSET $5
 `
 
