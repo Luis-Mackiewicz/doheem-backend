@@ -44,8 +44,8 @@ WHERE category_id = $1
 ORDER BY competence_date DESC;
 
 -- name: CreateExpense :one
-INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
 
 -- name: UpdateExpense :one
@@ -77,3 +77,15 @@ ORDER BY installment_index;
 -- name: DeleteExpensesByParent :exec
 DELETE FROM expenses
 WHERE parent_expense_id = $1;
+
+-- name: ListFixedOrigins :many
+SELECT * FROM expenses
+WHERE is_fixed = true
+  AND installments = 1
+  AND fixed_source_id IS NULL;
+
+-- name: CountCloneByMonth :one
+SELECT COUNT(*) FROM expenses
+WHERE fixed_source_id = $1
+  AND competence_date >= $2
+  AND competence_date <= $3;

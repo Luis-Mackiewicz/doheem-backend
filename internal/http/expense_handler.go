@@ -358,6 +358,7 @@ type expenseResponse struct {
 	InstallmentIndex *int32                         `json:"installment_index,omitempty"`
 	InstallmentTotal *int32                         `json:"installment_total,omitempty"`
 	CreatedBy        *string                        `json:"created_by,omitempty"`
+	FixedSourceID    *string                        `json:"fixed_source_id,omitempty"`
 	CreatedAt        string                         `json:"created_at"`
 	UpdatedAt        string                         `json:"updated_at"`
 }
@@ -422,6 +423,7 @@ func toExpenseResponse(e expense.Expense) expenseResponse {
 		InstallmentIndex: e.InstallmentIndex,
 		InstallmentTotal: e.InstallmentTotal,
 		CreatedBy:        e.CreatedBy,
+		FixedSourceID:    e.FixedSourceID,
 		CreatedAt:        e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:        e.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}

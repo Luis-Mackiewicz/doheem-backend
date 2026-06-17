@@ -23,6 +23,7 @@ type Expense struct {
 	InstallmentIndex *int32
 	InstallmentTotal *int32
 	CreatedBy        *string
+	FixedSourceID    *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -43,6 +44,7 @@ type CreateExpenseParams struct {
 	InstallmentIndex *int32
 	InstallmentTotal *int32
 	CreatedBy        *string
+	FixedSourceID    *string
 }
 
 type UpdateExpenseParams struct {
@@ -93,6 +95,8 @@ type ExpenseRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]Expense, error)
 	ListByCategory(ctx context.Context, categoryID string) ([]Expense, error)
 	ListByParent(ctx context.Context, parentID string) ([]Expense, error)
+	ListFixedOrigins(ctx context.Context) ([]Expense, error)
+	CountCloneByMonth(ctx context.Context, fixedSourceID string, dateFrom, dateTo time.Time) (int64, error)
 	Create(ctx context.Context, params CreateExpenseParams) (Expense, error)
 	Update(ctx context.Context, id string, params UpdateExpenseParams) (Expense, error)
 	Delete(ctx context.Context, id string) error

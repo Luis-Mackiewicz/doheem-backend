@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"time"
 
@@ -321,6 +322,91 @@ func (s *ExpenseService) Delete(ctx context.Context, id, userID string) error {
 
 func (s *ExpenseService) GetTotalByGroup(ctx context.Context, groupID string) (float64, error) {
 	return s.expenseRepo.GetTotalByGroup(ctx, groupID)
+}
+
+func (s *ExpenseService) AutoRestoreFixedExpenses(ctx context.Context) error {
+	origins, err := s.expenseRepo.ListFixedOrigins(ctx)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	currentYear, currentMonth, _ := now.Date()
+	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, time.UTC)
+	lastOfMonth := firstOfMonth.AddDate(0, 1, -1)
+
+	for _, origin := range origins {
+		count, err := s.expenseRepo.CountCloneByMonth(ctx, origin.ID, firstOfMonth, lastOfMonth)
+		if err != nil {
+			slog.Warn("failed to check clone for fixed expense", "id", origin.ID, "error", err)
+			continue
+		}
+		if count > 0 {
+			continue
+		}
+
+		cloneDue := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
+		cloneCompetence := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
+
+		cloneParams := CreateExpenseParams{
+			GroupID:        origin.GroupID,
+			Description:    origin.Description,
+			Amount:         origin.Amount,
+			CategoryID:     origin.CategoryID,
+			CompetenceDate: cloneCompetence,
+			DueDate:        cloneDue,
+			PaidBy:         origin.PaidBy,
+			SplitMode:      origin.SplitMode,
+			Installments:   1,
+			IsFixed:        false,
+			FixedSourceID:  &origin.ID,
+		}
+
+		clone, err := s.expenseRepo.Create(ctx, cloneParams)
+		if err != nil {
+			slog.Warn("failed to create clone for fixed expense", "id", origin.ID, "error", err)
+			continue
+		}
+
+		if origin.SplitMode == "equal" || origin.SplitMode == "some" {
+			members, err := s.memberRepo.ListByGroup(ctx, origin.GroupID)
+			if err != nil {
+				slog.Warn("failed to list members for fixed expense clone", "id", origin.ID, "error", err)
+				continue
+			}
+			ids := make([]string, len(members))
+			for i, m := range members {
+				ids[i] = m.UserID
+			}
+			splitParams := splitEqually(origin.Amount, ids)
+			s.expenseSplitRepo.CreateMany(ctx, clone.ID, splitParams)
+		} else if origin.SplitMode == "custom" {
+			originalSplits, err := s.expenseSplitRepo.ListByExpense(ctx, origin.ID)
+			if err != nil {
+				slog.Warn("failed to list splits for fixed expense", "id", origin.ID, "error", err)
+				continue
+			}
+			cloneSplits := make([]CreateExpenseSplitParams, len(originalSplits))
+			for i, sp := range originalSplits {
+				cloneSplits[i] = CreateExpenseSplitParams{
+					UserID: sp.UserID,
+					Amount: sp.Amount,
+				}
+			}
+			s.expenseSplitRepo.CreateMany(ctx, clone.ID, cloneSplits)
+		}
+	}
+
+	return nil
+}
+
+func sameDayInMonth(source time.Time, year int, month time.Month) time.Time {
+	day := source.Day()
+	lastDay := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	if day > lastDay {
+		day = lastDay
+	}
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
 
 func (s *ExpenseService) GetUserBalance(ctx context.Context, userID, groupID string) (UserBalance, error) {

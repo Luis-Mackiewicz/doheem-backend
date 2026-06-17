@@ -79,6 +79,7 @@ func (r *ExpenseRepo) ListByGroupFull(ctx context.Context, groupID string, dateF
 			InstallmentIndex: r.InstallmentIndex,
 			InstallmentTotal: r.InstallmentTotal,
 			CreatedBy:        r.CreatedBy,
+			FixedSourceID:    r.FixedSourceID,
 			CreatedAt:        r.CreatedAt,
 			UpdatedAt:        r.UpdatedAt,
 		})
@@ -122,6 +123,22 @@ func (r *ExpenseRepo) ListByParent(ctx context.Context, parentID string) ([]Expe
 	return toExpenses(expenses), nil
 }
 
+func (r *ExpenseRepo) ListFixedOrigins(ctx context.Context) ([]Expense, error) {
+	expenses, err := r.q.ListFixedOrigins(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return toExpenses(expenses), nil
+}
+
+func (r *ExpenseRepo) CountCloneByMonth(ctx context.Context, fixedSourceID string, dateFrom, dateTo time.Time) (int64, error) {
+	return r.q.CountCloneByMonth(ctx, db.CountCloneByMonthParams{
+		FixedSourceID:      db.UUIDFromString(fixedSourceID),
+		CompetenceDateFrom: db.DateFromTime(dateFrom),
+		CompetenceDateTo:   db.DateFromTime(dateTo),
+	})
+}
+
 func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (Expense, error) {
 	e, err := r.q.CreateExpense(ctx, db.CreateExpenseParams{
 		GroupID:          db.UUIDFromString(params.GroupID),
@@ -139,6 +156,7 @@ func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (E
 		InstallmentIndex: int4FromInt32Ptr(params.InstallmentIndex),
 		InstallmentTotal: int4FromInt32Ptr(params.InstallmentTotal),
 		CreatedBy:        db.UUIDFromStringPtr(params.CreatedBy),
+		FixedSourceID:    db.UUIDFromStringPtr(params.FixedSourceID),
 	})
 	if err != nil {
 		return Expense{}, err
@@ -204,6 +222,7 @@ func toExpense(e db.Expense) Expense {
 		InstallmentIndex: installmentIndex,
 		InstallmentTotal: installmentTotal,
 		CreatedBy:        db.UUIDToStringPtr(e.CreatedBy),
+		FixedSourceID:    db.UUIDToStringPtr(e.FixedSourceID),
 		CreatedAt:        e.CreatedAt.Time,
 		UpdatedAt:        e.UpdatedAt.Time,
 	}

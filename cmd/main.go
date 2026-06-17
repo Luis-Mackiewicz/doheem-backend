@@ -54,6 +54,8 @@ func main() {
 	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo, notificationRepo)
 	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo, groupMemberRepo, notificationRepo)
 
+	startFixedExpenseScheduler(expenseSvc)
+
 	jwtSvc := adapterhttp.NewJWTService(cfg.JWTSecret, cfg.JWTExpiresIn, cfg.JWTRefreshExpiresIn)
 	router := adapterhttp.NewRouter(jwtSvc, userSvc, groupSvc, expenseSvc, taskSvc, notificationSvc, rdb, pool)
 
@@ -137,4 +139,26 @@ func runServer(ctx context.Context, handler http.Handler, port string) {
 		slog.Error("server shutdown error", "error", err)
 	}
 	slog.Info("server stopped")
+}
+
+func startFixedExpenseScheduler(svc *expense.ExpenseService) {
+	go func() {
+		ctx := context.Background()
+		if err := svc.AutoRestoreFixedExpenses(ctx); err != nil {
+			slog.Warn("fixed expense restore on startup failed", "error", err)
+		} else {
+			slog.Info("fixed expenses restored on startup")
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			ctx := context.Background()
+			if err := svc.AutoRestoreFixedExpenses(ctx); err != nil {
+				slog.Warn("fixed expense restore failed", "error", err)
+			}
+		}
+	}()
 }

@@ -33,9 +33,9 @@ func (q *Queries) CountExpensesByGroup(ctx context.Context, arg CountExpensesByG
 }
 
 const createExpense = `-- name: CreateExpense :one
-INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at
+INSERT INTO expenses (group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at
 `
 
 type CreateExpenseParams struct {
@@ -54,6 +54,7 @@ type CreateExpenseParams struct {
 	InstallmentIndex pgtype.Int4
 	InstallmentTotal pgtype.Int4
 	CreatedBy        pgtype.UUID
+	FixedSourceID    pgtype.UUID
 }
 
 func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expense, error) {
@@ -73,6 +74,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		arg.InstallmentIndex,
 		arg.InstallmentTotal,
 		arg.CreatedBy,
+		arg.FixedSourceID,
 	)
 	var i Expense
 	err := row.Scan(
@@ -92,6 +94,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		&i.InstallmentIndex,
 		&i.InstallmentTotal,
 		&i.CreatedBy,
+		&i.FixedSourceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -119,7 +122,7 @@ func (q *Queries) DeleteExpensesByParent(ctx context.Context, parentExpenseID pg
 }
 
 const getExpenseByID = `-- name: GetExpenseByID :one
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at FROM expenses
 WHERE id = $1
 `
 
@@ -143,6 +146,7 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 		&i.InstallmentIndex,
 		&i.InstallmentTotal,
 		&i.CreatedBy,
+		&i.FixedSourceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -150,7 +154,7 @@ func (q *Queries) GetExpenseByID(ctx context.Context, id pgtype.UUID) (Expense, 
 }
 
 const listExpensesByGroupFull = `-- name: ListExpensesByGroupFull :many
-SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_by, e.created_at, e.updated_at, COUNT(*) OVER() AS total_count
+SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_by, e.fixed_source_id, e.created_at, e.updated_at, COUNT(*) OVER() AS total_count
 FROM expenses e
 WHERE e.group_id = $1
   AND ($2::DATE IS NULL OR e.competence_date >= $2)
@@ -191,6 +195,7 @@ type ListExpensesByGroupFullRow struct {
 	InstallmentIndex pgtype.Int4
 	InstallmentTotal pgtype.Int4
 	CreatedBy        pgtype.UUID
+	FixedSourceID    pgtype.UUID
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
 	TotalCount       int64
@@ -230,6 +235,7 @@ func (q *Queries) ListExpensesByGroupFull(ctx context.Context, arg ListExpensesB
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
 			&i.CreatedBy,
+			&i.FixedSourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -258,7 +264,7 @@ func (q *Queries) GetTotalExpensesByGroup(ctx context.Context, groupID pgtype.UU
 }
 
 const listExpensesByCategory = `-- name: ListExpensesByCategory :many
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at FROM expenses
 WHERE category_id = $1
 ORDER BY competence_date DESC
 `
@@ -289,6 +295,7 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
 			&i.CreatedBy,
+			&i.FixedSourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -303,7 +310,7 @@ func (q *Queries) ListExpensesByCategory(ctx context.Context, categoryID pgtype.
 }
 
 const listExpensesByGroup = `-- name: ListExpensesByGroup :many
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at FROM expenses
 WHERE group_id = $1
   AND ($2::DATE IS NULL OR competence_date >= $2)
   AND ($3::DATE IS NULL OR competence_date <= $3)
@@ -346,6 +353,7 @@ func (q *Queries) ListExpensesByGroup(ctx context.Context, arg ListExpensesByGro
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
 			&i.CreatedBy,
+			&i.FixedSourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -360,7 +368,7 @@ func (q *Queries) ListExpensesByGroup(ctx context.Context, arg ListExpensesByGro
 }
 
 const listExpensesByParent = `-- name: ListExpensesByParent :many
-SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at FROM expenses
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at FROM expenses
 WHERE parent_expense_id = $1
 ORDER BY installment_index
 `
@@ -391,6 +399,7 @@ func (q *Queries) ListExpensesByParent(ctx context.Context, parentExpenseID pgty
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
 			&i.CreatedBy,
+			&i.FixedSourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -405,7 +414,7 @@ func (q *Queries) ListExpensesByParent(ctx context.Context, parentExpenseID pgty
 }
 
 const listExpensesByUser = `-- name: ListExpensesByUser :many
-SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_by, e.created_at, e.updated_at FROM expenses e
+SELECT e.id, e.group_id, e.description, e.amount, e.category_id, e.competence_date, e.due_date, e.paid_by, e.split_mode, e.installments, e.first_due_date, e.is_fixed, e.parent_expense_id, e.installment_index, e.installment_total, e.created_by, e.fixed_source_id, e.created_at, e.updated_at FROM expenses e
 JOIN expense_splits es ON es.expense_id = e.id
 WHERE es.user_id = $1
 ORDER BY e.competence_date DESC, e.created_at DESC
@@ -437,6 +446,7 @@ func (q *Queries) ListExpensesByUser(ctx context.Context, userID pgtype.UUID) ([
 			&i.InstallmentIndex,
 			&i.InstallmentTotal,
 			&i.CreatedBy,
+			&i.FixedSourceID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -460,7 +470,7 @@ SET description = COALESCE($2, description),
     split_mode = COALESCE($7, split_mode),
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, created_at, updated_at
+RETURNING id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at
 `
 
 type UpdateExpenseParams struct {
@@ -501,8 +511,76 @@ func (q *Queries) UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (E
 		&i.InstallmentIndex,
 		&i.InstallmentTotal,
 		&i.CreatedBy,
+		&i.FixedSourceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listFixedOrigins = `-- name: ListFixedOrigins :many
+SELECT id, group_id, description, amount, category_id, competence_date, due_date, paid_by, split_mode, installments, first_due_date, is_fixed, parent_expense_id, installment_index, installment_total, created_by, fixed_source_id, created_at, updated_at FROM expenses
+WHERE is_fixed = true
+  AND installments = 1
+  AND fixed_source_id IS NULL
+`
+
+func (q *Queries) ListFixedOrigins(ctx context.Context) ([]Expense, error) {
+	rows, err := q.db.Query(ctx, listFixedOrigins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Expense
+	for rows.Next() {
+		var i Expense
+		if err := rows.Scan(
+			&i.ID,
+			&i.GroupID,
+			&i.Description,
+			&i.Amount,
+			&i.CategoryID,
+			&i.CompetenceDate,
+			&i.DueDate,
+			&i.PaidBy,
+			&i.SplitMode,
+			&i.Installments,
+			&i.FirstDueDate,
+			&i.IsFixed,
+			&i.ParentExpenseID,
+			&i.InstallmentIndex,
+			&i.InstallmentTotal,
+			&i.CreatedBy,
+			&i.FixedSourceID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCloneByMonth = `-- name: CountCloneByMonth :one
+SELECT COUNT(*) FROM expenses
+WHERE fixed_source_id = $1
+  AND competence_date >= $2
+  AND competence_date <= $3
+`
+
+type CountCloneByMonthParams struct {
+	FixedSourceID      pgtype.UUID
+	CompetenceDateFrom pgtype.Date
+	CompetenceDateTo   pgtype.Date
+}
+
+func (q *Queries) CountCloneByMonth(ctx context.Context, arg CountCloneByMonthParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCloneByMonth, arg.FixedSourceID, arg.CompetenceDateFrom, arg.CompetenceDateTo)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }

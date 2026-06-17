@@ -61,6 +61,7 @@ func TestMain(m *testing.M) {
 		"../db/migrations/005_add_expense_composite_index.up.sql",
 		"../db/migrations/006_add_receipt_to_splits.up.sql",
 		"../db/migrations/007_add_created_by_to_expenses.up.sql",
+		"../db/migrations/008_add_fixed_source_id.up.sql",
 	}
 	for _, path := range migrations {
 		migration, err := os.ReadFile(path)

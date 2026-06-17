@@ -76,6 +76,16 @@ func (m *mockExpenseRepo) ListByGroupFull(ctx context.Context, groupID string, d
 	return args.Get(0).([]Expense), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *mockExpenseRepo) ListFixedOrigins(ctx context.Context) ([]Expense, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]Expense), args.Error(1)
+}
+
+func (m *mockExpenseRepo) CountCloneByMonth(ctx context.Context, fixedSourceID string, dateFrom, dateTo time.Time) (int64, error) {
+	args := m.Called(ctx, fixedSourceID, dateFrom, dateTo)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 type mockExpenseSplitRepo struct {
 	mock.Mock
 }

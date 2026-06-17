@@ -36,6 +36,7 @@ type Expense struct {
 	InstallmentIndex pgtype.Int4
 	InstallmentTotal pgtype.Int4
 	CreatedBy        pgtype.UUID
+	FixedSourceID    pgtype.UUID
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
 }
