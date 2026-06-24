@@ -37,6 +37,11 @@ func (m *mockGroupRepo) RegenerateInviteToken(ctx context.Context, id, token str
 	return args.Error(0)
 }
 
+func (m *mockGroupRepo) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 type mockGroupMemberRepo struct {
 	mock.Mock
 }
@@ -72,6 +77,11 @@ func (m *mockGroupMemberRepo) Remove(ctx context.Context, groupID, userID string
 }
 
 func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64, error) {
+	args := m.Called(ctx, groupID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *mockGroupMemberRepo) CountAdmins(ctx context.Context, groupID string) (int64, error) {
 	args := m.Called(ctx, groupID)
 	return args.Get(0).(int64), args.Error(1)
 }

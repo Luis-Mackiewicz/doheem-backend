@@ -29,3 +29,7 @@ SET invite_token = $2,
     updated_at = NOW()
 WHERE id = $1
 RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at;
+
+-- name: DeleteGroup :exec
+DELETE FROM groups
+WHERE id = $1;

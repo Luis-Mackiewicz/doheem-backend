@@ -23,6 +23,18 @@ func (q *Queries) CountGroupMembers(ctx context.Context, groupID pgtype.UUID) (i
 	return count, err
 }
 
+const countGroupAdmins = `-- name: CountGroupAdmins :one
+SELECT COUNT(*) FROM group_members
+WHERE group_id = $1 AND is_admin = true
+`
+
+func (q *Queries) CountGroupAdmins(ctx context.Context, groupID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countGroupAdmins, groupID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createGroupMember = `-- name: CreateGroupMember :one
 INSERT INTO group_members (group_id, user_id, is_admin)
 VALUES ($1, $2, $3)

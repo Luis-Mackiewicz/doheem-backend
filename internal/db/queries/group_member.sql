@@ -31,3 +31,7 @@ WHERE group_id = $1 AND user_id = $2;
 -- name: CountGroupMembers :one
 SELECT COUNT(*) FROM group_members
 WHERE group_id = $1;
+
+-- name: CountGroupAdmins :one
+SELECT COUNT(*) FROM group_members
+WHERE group_id = $1 AND is_admin = true;

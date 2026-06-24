@@ -35,6 +35,10 @@ func (m *mockGroupRepo) RegenerateInviteToken(ctx context.Context, id, token str
 	args := m.Called(ctx, id, token)
 	return args.Error(0)
 }
+func (m *mockGroupRepo) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
 
 type mockGroupMemberRepo struct{ mock.Mock }
 
@@ -66,12 +70,16 @@ func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64,
 	args := m.Called(ctx, groupID)
 	return args.Get(0).(int64), args.Error(1)
 }
+func (m *mockGroupMemberRepo) CountAdmins(ctx context.Context, groupID string) (int64, error) {
+	args := m.Called(ctx, groupID)
+	return args.Get(0).(int64), args.Error(1)
+}
 
 func TestGroupCreate_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	memberRepo := new(mockGroupMemberRepo)
 	svc := group.NewGroupService(groupRepo, memberRepo, nil)
-	handler := NewGroupHandler(svc, nil)
+	handler := NewGroupHandler(svc, nil, nil, nil)
 
 	groupRepo.On("Create", mock.Anything, mock.Anything).Return(group.Group{ID: "g1", Name: "My Group"}, nil)
 	memberRepo.On("Create", mock.Anything, "g1", "test-user-id", true).Return(group.GroupMember{}, nil)
@@ -93,7 +101,7 @@ func TestGroupCreate_Success(t *testing.T) {
 }
 
 func TestGroupCreate_ValidationError(t *testing.T) {
-	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo), nil), nil)
+	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo), nil), nil, nil, nil)
 
 	body := `{"name":""}`
 	r := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
@@ -111,7 +119,7 @@ func TestGroupCreate_ValidationError(t *testing.T) {
 func TestGroupGetByID_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo), nil)
-	handler := NewGroupHandler(svc, nil)
+	handler := NewGroupHandler(svc, nil, nil, nil)
 
 	groupRepo.On("GetByID", mock.Anything, "g1").Return(group.Group{ID: "g1", Name: "My Group"}, nil)
 
@@ -131,7 +139,7 @@ func TestGroupGetByID_Success(t *testing.T) {
 func TestGroupGetByID_NotFound(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo), nil)
-	handler := NewGroupHandler(svc, nil)
+	handler := NewGroupHandler(svc, nil, nil, nil)
 
 	groupRepo.On("GetByID", mock.Anything, "999").Return(group.Group{}, assert.AnError)
 
@@ -151,7 +159,7 @@ func TestGroupGetByID_NotFound(t *testing.T) {
 func TestGroupList_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo), nil)
-	handler := NewGroupHandler(svc, nil)
+	handler := NewGroupHandler(svc, nil, nil, nil)
 
 	groupRepo.On("ListByUserID", mock.Anything, "test-user-id").Return([]group.Group{
 		{ID: "g1", Name: "Group 1"},

@@ -119,6 +119,16 @@ func (q *Queries) RegenerateInviteToken(ctx context.Context, arg RegenerateInvit
 	return i, err
 }
 
+const deleteGroup = `-- name: DeleteGroup :exec
+DELETE FROM groups
+WHERE id = $1
+`
+
+func (q *Queries) DeleteGroup(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteGroup, id)
+	return err
+}
+
 const updateGroup = `-- name: UpdateGroup :one
 UPDATE groups
 SET name = COALESCE($2, name),

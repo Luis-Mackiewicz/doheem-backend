@@ -55,6 +55,10 @@ func (r *GroupRepo) Update(ctx context.Context, id string, params UpdateGroupPar
 	return toGroup(g), nil
 }
 
+func (r *GroupRepo) Delete(ctx context.Context, id string) error {
+	return r.q.DeleteGroup(ctx, db.UUIDFromString(id))
+}
+
 func (r *GroupRepo) RegenerateInviteToken(ctx context.Context, id, token string) error {
 	_, err := r.q.RegenerateInviteToken(ctx, db.RegenerateInviteTokenParams{
 		ID:          db.UUIDFromString(id),

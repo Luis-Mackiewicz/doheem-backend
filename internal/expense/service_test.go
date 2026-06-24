@@ -250,6 +250,10 @@ func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64,
 	args := m.Called(ctx, groupID)
 	return args.Get(0).(int64), args.Error(1)
 }
+func (m *mockGroupMemberRepo) CountAdmins(ctx context.Context, groupID string) (int64, error) {
+	args := m.Called(ctx, groupID)
+	return args.Get(0).(int64), args.Error(1)
+}
 
 func TestExpenseService_Create_InvalidSplitTotal(t *testing.T) {
 	svc := NewExpenseService(new(mockExpenseRepo), new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))

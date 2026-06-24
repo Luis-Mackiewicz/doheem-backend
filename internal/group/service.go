@@ -223,3 +223,15 @@ func (s *GroupService) GetInviteToken(ctx context.Context, groupID string) (*str
 	}
 	return group.InviteToken, nil
 }
+
+func (s *GroupService) CountMembers(ctx context.Context, groupID string) (int64, error) {
+	return s.groupMemberRepo.Count(ctx, groupID)
+}
+
+func (s *GroupService) CountAdmins(ctx context.Context, groupID string) (int64, error) {
+	return s.groupMemberRepo.CountAdmins(ctx, groupID)
+}
+
+func (s *GroupService) DeleteGroup(ctx context.Context, groupID string) error {
+	return s.groupRepo.Delete(ctx, groupID)
+}

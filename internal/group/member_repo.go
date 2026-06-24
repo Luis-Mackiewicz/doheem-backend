@@ -80,6 +80,10 @@ func (r *GroupMemberRepo) Count(ctx context.Context, groupID string) (int64, err
 	return r.q.CountGroupMembers(ctx, db.UUIDFromString(groupID))
 }
 
+func (r *GroupMemberRepo) CountAdmins(ctx context.Context, groupID string) (int64, error) {
+	return r.q.CountGroupAdmins(ctx, db.UUIDFromString(groupID))
+}
+
 func toGroupMember(gm db.GroupMember) GroupMember {
 	return GroupMember{
 		ID:       db.UUIDToString(gm.ID),

@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"doheem-backend/internal/expense"
 	"doheem-backend/internal/group"
+	"doheem-backend/internal/task"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
@@ -14,12 +16,14 @@ import (
 const membersCacheTTL = 30 * time.Second
 
 type GroupHandler struct {
-	svc *group.GroupService
-	rdb *redis.Client
+	svc        *group.GroupService
+	rdb        *redis.Client
+	expenseSvc *expense.ExpenseService
+	taskSvc    *task.TaskService
 }
 
-func NewGroupHandler(svc *group.GroupService, rdb *redis.Client) *GroupHandler {
-	return &GroupHandler{svc: svc, rdb: rdb}
+func NewGroupHandler(svc *group.GroupService, rdb *redis.Client, expenseSvc *expense.ExpenseService, taskSvc *task.TaskService) *GroupHandler {
+	return &GroupHandler{svc: svc, rdb: rdb, expenseSvc: expenseSvc, taskSvc: taskSvc}
 }
 
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +126,72 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, toGroupResponse(g))
+}
+
+func (h *GroupHandler) Leave(w http.ResponseWriter, r *http.Request) {
+	groupID := r.PathValue("id")
+	userID := r.Context().Value(UserIDKey).(string)
+
+	balance, err := h.expenseSvc.GetUserBalance(r.Context(), userID, groupID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	if balance.TotalOwed.GreaterThan(balance.TotalPaid) {
+		respondError(w, http.StatusConflict, group.ErrUserHasPendingDebts.Error())
+		return
+	}
+
+	pendingOccurrences, err := h.taskSvc.ListPendingOccurrences(r.Context(), userID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	for _, o := range pendingOccurrences {
+		if o.GroupID == groupID {
+			respondError(w, http.StatusConflict, group.ErrUserHasPendingTasks.Error())
+			return
+		}
+	}
+
+	count, err := h.svc.CountMembers(r.Context(), groupID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	if count == 1 {
+		if err := h.svc.DeleteGroup(r.Context(), groupID); err != nil {
+			handleError(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	member, err := h.svc.GetMember(r.Context(), groupID, userID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	if member.IsAdmin {
+		adminCount, err := h.svc.CountAdmins(r.Context(), groupID)
+		if err != nil {
+			handleError(w, r, err)
+			return
+		}
+		if adminCount <= 1 {
+			respondError(w, http.StatusConflict, group.ErrNoOtherAdmin.Error())
+			return
+		}
+	}
+
+	if err := h.svc.RemoveMember(r.Context(), groupID, userID); err != nil {
+		handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *GroupHandler) AddMember(w http.ResponseWriter, r *http.Request) {

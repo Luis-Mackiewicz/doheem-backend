@@ -38,7 +38,7 @@ func NewRouter(
 	return &Router{
 		jwt:          jwt,
 		user:         NewUserHandler(userSvc, jwt),
-		group:        NewGroupHandler(groupSvc, rdb),
+		group:        NewGroupHandler(groupSvc, rdb, expenseSvc, taskSvc),
 		expense:      NewExpenseHandler(expenseSvc),
 		task:         NewTaskHandler(taskSvc),
 		notification: NewNotificationHandler(notificationSvc),
@@ -73,6 +73,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("PUT /api/groups/{id}/members/{userId}", rt.auth(rt.group.UpdateMemberRole))
 	mux.Handle("DELETE /api/groups/{id}/members/{userId}", rt.auth(rt.group.RemoveMember))
 
+	mux.Handle("POST /api/groups/{id}/leave", rt.auth(rt.group.Leave))
 	mux.Handle("POST /api/groups/{id}/join", rt.auth(rt.group.Join))
 	mux.Handle("POST /api/groups/{id}/regenerate-invite", rt.auth(rt.group.RegenerateInvite))
 	mux.Handle("GET /api/groups/{id}/invite-token", rt.auth(rt.group.GetInviteToken))
