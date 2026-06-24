@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 type Group struct {
 	ID          string
 	Name        string
 	Description string
-	MonthlyFee  float64
+	MonthlyFee  decimal.Decimal
 	PhotoURL    *string
 	InviteToken *string
 	CreatedAt   time.Time
@@ -24,7 +26,7 @@ type CreateGroupParams struct {
 type UpdateGroupParams struct {
 	Name        *string
 	Description *string
-	MonthlyFee  *float64
+	MonthlyFee  *decimal.Decimal
 	PhotoURL    *string
 }
 

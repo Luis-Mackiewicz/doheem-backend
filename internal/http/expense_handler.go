@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"doheem-backend/internal/expense"
+
+	"github.com/shopspring/decimal"
 )
 
 type ExpenseHandler struct {
@@ -19,25 +21,36 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("groupId")
 
 	var req struct {
-		Description     string    `json:"description"         validate:"required"`
-		Amount          float64   `json:"amount"               validate:"required,gt=0"`
-		CategoryID      string    `json:"category_id"          validate:"required"`
-		CompetenceDate  string    `json:"competence_date"      validate:"required"`
-		DueDate         string    `json:"due_date"             validate:"required"`
-		PaidBy          string    `json:"paid_by"              validate:"required"`
-		SplitMode       string    `json:"split_mode"           validate:"required,oneof=equal some custom"`
-		Installments    int32     `json:"installments"`
-		FirstDueDate    *string   `json:"first_due_date,omitempty"`
-		IsFixed         bool      `json:"is_fixed"`
-		SelectedUserIDs []string  `json:"selected_user_ids,omitempty"`
+		Description     string          `json:"description"         validate:"required"`
+		Amount          decimal.Decimal `json:"amount"`
+		CategoryID      string          `json:"category_id"          validate:"required"`
+		CompetenceDate  string          `json:"competence_date"      validate:"required"`
+		DueDate         string          `json:"due_date"             validate:"required"`
+		PaidBy          string          `json:"paid_by"              validate:"required"`
+		SplitMode       string          `json:"split_mode"           validate:"required,oneof=equal some custom"`
+		Installments    int32           `json:"installments"`
+		FirstDueDate    *string         `json:"first_due_date,omitempty"`
+		IsFixed         bool            `json:"is_fixed"`
+		SelectedUserIDs []string        `json:"selected_user_ids,omitempty"`
 		Splits          []struct {
-			UserID string  `json:"user_id" validate:"required"`
-			Amount float64 `json:"amount"   validate:"required,gt=0"`
+			UserID string          `json:"user_id" validate:"required"`
+			Amount decimal.Decimal `json:"amount"`
 		} `json:"splits,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
+	}
+
+	if req.Amount.LessThanOrEqual(decimal.Zero) {
+		respondError(w, http.StatusBadRequest, "amount deve ser maior que zero")
+		return
+	}
+	for _, s := range req.Splits {
+		if s.Amount.LessThanOrEqual(decimal.Zero) {
+			respondError(w, http.StatusBadRequest, "amount dos splits deve ser maior que zero")
+			return
+		}
 	}
 
 	competenceDate, err := time.Parse("2006-01-02", req.CompetenceDate)
@@ -224,21 +237,31 @@ func (h *ExpenseHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
-		Description     *string  `json:"description,omitempty"`
-		Amount          *float64 `json:"amount,omitempty"         validate:"omitempty,gt=0"`
-		CompetenceDate  *string  `json:"competence_date,omitempty"`
-		DueDate         *string  `json:"due_date,omitempty"`
-		CategoryID      *string  `json:"category_id,omitempty"`
-		SplitMode       *string  `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal some custom"`
-		SelectedUserIDs []string `json:"selected_user_ids,omitempty"`
+		Description     *string          `json:"description,omitempty"`
+		Amount          *decimal.Decimal `json:"amount,omitempty"`
+		CompetenceDate  *string          `json:"competence_date,omitempty"`
+		DueDate         *string          `json:"due_date,omitempty"`
+		CategoryID      *string          `json:"category_id,omitempty"`
+		SplitMode       *string          `json:"split_mode,omitempty"     validate:"omitempty,oneof=equal some custom"`
+		SelectedUserIDs []string         `json:"selected_user_ids,omitempty"`
 		Splits          []struct {
-			UserID string  `json:"user_id" validate:"required"`
-			Amount float64 `json:"amount"   validate:"required,gt=0"`
+			UserID string          `json:"user_id" validate:"required"`
+			Amount decimal.Decimal `json:"amount"`
 		} `json:"splits,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
+	}
+	if req.Amount != nil && req.Amount.LessThanOrEqual(decimal.Zero) {
+		respondError(w, http.StatusBadRequest, "amount deve ser maior que zero")
+		return
+	}
+	for _, s := range req.Splits {
+		if s.Amount.LessThanOrEqual(decimal.Zero) {
+			respondError(w, http.StatusBadRequest, "amount dos splits deve ser maior que zero")
+			return
+		}
 	}
 
 	splitParams := make([]expense.CreateExpenseSplitParams, len(req.Splits))
@@ -359,7 +382,7 @@ type expenseResponse struct {
 	ID               string                         `json:"id"`
 	GroupID          string                         `json:"group_id"`
 	Description      string                         `json:"description"`
-	Amount           float64                        `json:"amount"`
+	Amount           decimal.Decimal                `json:"amount"`
 	CategoryID       string                         `json:"category_id"`
 	CompetenceDate   string                         `json:"competence_date"`
 	DueDate          string                         `json:"due_date"`
@@ -379,39 +402,39 @@ type expenseResponse struct {
 }
 
 type expenseSplitEmbeddedResponse struct {
-	ID              string  `json:"id"`
-	ExpenseID       string  `json:"expense_id"`
-	UserID          string  `json:"user_id"`
-	Amount          float64 `json:"amount"`
-	IsPaid          bool    `json:"is_paid"`
-	UserName        string  `json:"user_name"`
-	UserEmail       string  `json:"user_email"`
-	ReceiptData     *string `json:"receipt_data,omitempty"`
-	ReceiptType     *string `json:"receipt_type,omitempty"`
-	ReceiptFileName *string `json:"receipt_file_name,omitempty"`
+	ID              string          `json:"id"`
+	ExpenseID       string          `json:"expense_id"`
+	UserID          string          `json:"user_id"`
+	Amount          decimal.Decimal `json:"amount"`
+	IsPaid          bool            `json:"is_paid"`
+	UserName        string          `json:"user_name"`
+	UserEmail       string          `json:"user_email"`
+	ReceiptData     *string         `json:"receipt_data,omitempty"`
+	ReceiptType     *string         `json:"receipt_type,omitempty"`
+	ReceiptFileName *string         `json:"receipt_file_name,omitempty"`
 }
 
 type expenseSplitResponse struct {
-	ID        string  `json:"id"`
-	ExpenseID string  `json:"expense_id"`
-	UserID    string  `json:"user_id"`
-	Amount    float64 `json:"amount"`
-	IsPaid    bool    `json:"is_paid"`
-	CreatedAt string  `json:"created_at"`
+	ID        string          `json:"id"`
+	ExpenseID string          `json:"expense_id"`
+	UserID    string          `json:"user_id"`
+	Amount    decimal.Decimal `json:"amount"`
+	IsPaid    bool            `json:"is_paid"`
+	CreatedAt string          `json:"created_at"`
 }
 
 type expenseSplitWithUserResponse struct {
-	ID              string  `json:"id"`
-	ExpenseID       string  `json:"expense_id"`
-	UserID          string  `json:"user_id"`
-	Amount          float64 `json:"amount"`
-	IsPaid          bool    `json:"is_paid"`
-	CreatedAt       string  `json:"created_at"`
-	UserName        string  `json:"user_name"`
-	UserEmail       string  `json:"user_email"`
-	ReceiptData     *string `json:"receipt_data,omitempty"`
-	ReceiptType     *string `json:"receipt_type,omitempty"`
-	ReceiptFileName *string `json:"receipt_file_name,omitempty"`
+	ID              string          `json:"id"`
+	ExpenseID       string          `json:"expense_id"`
+	UserID          string          `json:"user_id"`
+	Amount          decimal.Decimal `json:"amount"`
+	IsPaid          bool            `json:"is_paid"`
+	CreatedAt       string          `json:"created_at"`
+	UserName        string          `json:"user_name"`
+	UserEmail       string          `json:"user_email"`
+	ReceiptData     *string         `json:"receipt_data,omitempty"`
+	ReceiptType     *string         `json:"receipt_type,omitempty"`
+	ReceiptFileName *string         `json:"receipt_file_name,omitempty"`
 }
 
 type categoryResponse struct {

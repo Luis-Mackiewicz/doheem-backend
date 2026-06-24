@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"doheem-backend/internal/db"
+
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 type ExpenseSplitRepo struct {
@@ -60,7 +62,7 @@ func (r *ExpenseSplitRepo) ListByUser(ctx context.Context, userID, groupID strin
 			ID:              db.UUIDToString(row.ID),
 			ExpenseID:       db.UUIDToString(row.ExpenseID),
 			UserID:          db.UUIDToString(row.UserID),
-			Amount:          db.NumericToFloat64(row.Amount),
+			Amount:          db.NumericToDecimal(row.Amount),
 			IsPaid:          row.IsPaid,
 			PaidAt:          db.TimestamptzToTimePtr(row.PaidAt),
 			CreatedAt:       row.CreatedAt.Time,
@@ -72,11 +74,11 @@ func (r *ExpenseSplitRepo) ListByUser(ctx context.Context, userID, groupID strin
 	return result, nil
 }
 
-func (r *ExpenseSplitRepo) Create(ctx context.Context, expenseID, userID string, amount float64) (ExpenseSplit, error) {
+func (r *ExpenseSplitRepo) Create(ctx context.Context, expenseID, userID string, amount decimal.Decimal) (ExpenseSplit, error) {
 	es, err := r.q.CreateExpenseSplit(ctx, db.CreateExpenseSplitParams{
 		ExpenseID: db.UUIDFromString(expenseID),
 		UserID:    db.UUIDFromString(userID),
-		Amount:    db.NumericFromFloat64(amount),
+		Amount:    db.NumericFromDecimal(amount),
 	})
 	if err != nil {
 		return ExpenseSplit{}, err
@@ -90,7 +92,7 @@ func (r *ExpenseSplitRepo) CreateMany(ctx context.Context, expenseID string, spl
 		params[i] = db.CreateExpenseSplitsParams{
 			ExpenseID: db.UUIDFromString(expenseID),
 			UserID:    db.UUIDFromString(s.UserID),
-			Amount:    db.NumericFromFloat64(s.Amount),
+			Amount:    db.NumericFromDecimal(s.Amount),
 		}
 	}
 	return r.q.CreateExpenseSplits(ctx, params)
@@ -129,7 +131,7 @@ func toExpenseSplit(es db.ExpenseSplit) ExpenseSplit {
 		ID:              db.UUIDToString(es.ID),
 		ExpenseID:       db.UUIDToString(es.ExpenseID),
 		UserID:          db.UUIDToString(es.UserID),
-		Amount:          db.NumericToFloat64(es.Amount),
+		Amount:          db.NumericToDecimal(es.Amount),
 		IsPaid:          es.IsPaid,
 		PaidAt:          db.TimestamptzToTimePtr(es.PaidAt),
 		CreatedAt:       es.CreatedAt.Time,
@@ -145,7 +147,7 @@ func toExpenseSplitWithUser(row db.ListExpenseSplitsByExpenseRow) ExpenseSplitWi
 			ID:              db.UUIDToString(row.ID),
 			ExpenseID:       db.UUIDToString(row.ExpenseID),
 			UserID:          db.UUIDToString(row.UserID),
-			Amount:          db.NumericToFloat64(row.Amount),
+			Amount:          db.NumericToDecimal(row.Amount),
 			IsPaid:          row.IsPaid,
 			PaidAt:          db.TimestamptzToTimePtr(row.PaidAt),
 			CreatedAt:       row.CreatedAt.Time,
@@ -174,7 +176,7 @@ func toExpenseSplitsWithUserFromIDsRow(rows []db.ListExpenseSplitsByExpenseIDsRo
 				ID:              db.UUIDToString(r.ID),
 				ExpenseID:       db.UUIDToString(r.ExpenseID),
 				UserID:          db.UUIDToString(r.UserID),
-				Amount:          db.NumericToFloat64(r.Amount),
+				Amount:          db.NumericToDecimal(r.Amount),
 				IsPaid:          r.IsPaid,
 				PaidAt:          db.TimestamptzToTimePtr(r.PaidAt),
 				CreatedAt:       r.CreatedAt.Time,
@@ -191,7 +193,7 @@ func toExpenseSplitsWithUserFromIDsRow(rows []db.ListExpenseSplitsByExpenseIDsRo
 
 func toUserBalance(row db.GetUserBalanceInGroupRow) UserBalance {
 	return UserBalance{
-		TotalOwed: db.NumericToFloat64(row.TotalOwed),
-		TotalPaid: db.NumericToFloat64(row.TotalPaid),
+		TotalOwed: db.NumericToDecimal(row.TotalOwed),
+		TotalPaid: db.NumericToDecimal(row.TotalPaid),
 	}
 }

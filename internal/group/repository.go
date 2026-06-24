@@ -6,6 +6,7 @@ import (
 	"doheem-backend/internal/db"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 type GroupRepo struct {
@@ -67,7 +68,7 @@ func toGroup(g db.Group) Group {
 		ID:          db.UUIDToString(g.ID),
 		Name:        g.Name,
 		Description: g.Description,
-		MonthlyFee:  db.NumericToFloat64(g.MonthlyFee),
+		MonthlyFee:  db.NumericToDecimal(g.MonthlyFee),
 		PhotoURL:    db.TextToStringPtr(g.PhotoUrl),
 		InviteToken: db.TextToStringPtr(g.InviteToken),
 		CreatedAt:   g.CreatedAt.Time,
@@ -90,9 +91,9 @@ func deptrStr(s *string) string {
 	return ""
 }
 
-func deptrNumeric(f *float64) pgtype.Numeric {
-	if f != nil {
-		return db.NumericFromFloat64(*f)
+func deptrNumeric(d *decimal.Decimal) pgtype.Numeric {
+	if d != nil {
+		return db.NumericFromDecimal(*d)
 	}
 	return pgtype.Numeric{}
 }

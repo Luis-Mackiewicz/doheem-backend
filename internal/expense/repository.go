@@ -7,6 +7,7 @@ import (
 	"doheem-backend/internal/db"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 type ExpenseRepo struct {
@@ -143,7 +144,7 @@ func (r *ExpenseRepo) Create(ctx context.Context, params CreateExpenseParams) (E
 	e, err := r.q.CreateExpense(ctx, db.CreateExpenseParams{
 		GroupID:          db.UUIDFromString(params.GroupID),
 		Description:      params.Description,
-		Amount:           db.NumericFromFloat64(params.Amount),
+		Amount:           db.NumericFromDecimal(params.Amount),
 		CategoryID:       db.UUIDFromString(params.CategoryID),
 		CompetenceDate:   db.DateFromTime(params.CompetenceDate),
 		DueDate:          db.DateFromTime(params.DueDate),
@@ -188,12 +189,12 @@ func (r *ExpenseRepo) DeleteByParent(ctx context.Context, parentID string) error
 	return r.q.DeleteExpensesByParent(ctx, db.UUIDFromString(parentID))
 }
 
-func (r *ExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (float64, error) {
+func (r *ExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (decimal.Decimal, error) {
 	val, err := r.q.GetTotalExpensesByGroup(ctx, db.UUIDFromString(groupID))
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
-	return db.NumericToFloat64(val), nil
+	return db.NumericToDecimal(val), nil
 }
 
 func toExpense(e db.Expense) Expense {
@@ -209,7 +210,7 @@ func toExpense(e db.Expense) Expense {
 		ID:               db.UUIDToString(e.ID),
 		GroupID:          db.UUIDToString(e.GroupID),
 		Description:      e.Description,
-		Amount:           db.NumericToFloat64(e.Amount),
+		Amount:           db.NumericToDecimal(e.Amount),
 		CategoryID:       db.UUIDToString(e.CategoryID),
 		CompetenceDate:   e.CompetenceDate.Time,
 		DueDate:          e.DueDate.Time,
@@ -243,9 +244,9 @@ func deptrStr(s *string) string {
 	return ""
 }
 
-func deptrNumeric(f *float64) pgtype.Numeric {
-	if f != nil {
-		return db.NumericFromFloat64(*f)
+func deptrNumeric(d *decimal.Decimal) pgtype.Numeric {
+	if d != nil {
+		return db.NumericFromDecimal(*d)
 	}
 	return pgtype.Numeric{}
 }

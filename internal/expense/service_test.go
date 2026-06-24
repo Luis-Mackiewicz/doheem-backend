@@ -8,6 +8,7 @@ import (
 	"doheem-backend/internal/group"
 	"doheem-backend/internal/notification"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -66,9 +67,9 @@ func (m *mockExpenseRepo) DeleteByParent(ctx context.Context, parentID string) e
 	return args.Error(0)
 }
 
-func (m *mockExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (float64, error) {
+func (m *mockExpenseRepo) GetTotalByGroup(ctx context.Context, groupID string) (decimal.Decimal, error) {
 	args := m.Called(ctx, groupID)
-	return args.Get(0).(float64), args.Error(1)
+	return args.Get(0).(decimal.Decimal), args.Error(1)
 }
 
 func (m *mockExpenseRepo) ListByGroupFull(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, search string, myUserID *string, limit, offset int32) ([]Expense, int64, error) {
@@ -110,7 +111,7 @@ func (m *mockExpenseSplitRepo) ListByUser(ctx context.Context, userID, groupID s
 	return args.Get(0).([]ExpenseSplit), args.Error(1)
 }
 
-func (m *mockExpenseSplitRepo) Create(ctx context.Context, expenseID, userID string, amount float64) (ExpenseSplit, error) {
+func (m *mockExpenseSplitRepo) Create(ctx context.Context, expenseID, userID string, amount decimal.Decimal) (ExpenseSplit, error) {
 	args := m.Called(ctx, expenseID, userID, amount)
 	return args.Get(0).(ExpenseSplit), args.Error(1)
 }
@@ -256,8 +257,8 @@ func TestExpenseService_Create_InvalidSplitTotal(t *testing.T) {
 	ctx := context.Background()
 
 	params := CreateExpenseWithSplitsParams{
-		Expense: CreateExpenseParams{Amount: 100},
-		Splits:  []CreateExpenseSplitParams{{Amount: 30}, {Amount: 30}},
+		Expense: CreateExpenseParams{Amount: decimal.NewFromInt(100)},
+		Splits:  []CreateExpenseSplitParams{{Amount: decimal.NewFromInt(30)}, {Amount: decimal.NewFromInt(30)}},
 	}
 
 	_, err := svc.Create(ctx, params)
@@ -275,7 +276,7 @@ func TestExpenseService_Create_CategoryNotFound(t *testing.T) {
 
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			Amount:     100,
+			Amount:     decimal.NewFromInt(100),
 			CategoryID: catID,
 		},
 		Splits: []CreateExpenseSplitParams{},
@@ -297,11 +298,11 @@ func TestExpenseService_Create_Simple(t *testing.T) {
 
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			Amount:     100,
+			Amount:     decimal.NewFromInt(100),
 			CategoryID: "cat1",
 		},
 	}
-	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", Amount: 100}, nil)
+	mockExpense.On("Create", ctx, params.Expense).Return(Expense{ID: "1", Amount: decimal.NewFromInt(100)}, nil)
 
 	expense, err := svc.Create(ctx, params)
 
@@ -321,7 +322,7 @@ func TestExpenseService_Create_Installment(t *testing.T) {
 	firstDue := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			Amount:       300,
+			Amount:       decimal.NewFromInt(300),
 			CategoryID:   "cat1",
 			Installments: 3,
 			FirstDueDate: &firstDue,
@@ -331,7 +332,7 @@ func TestExpenseService_Create_Installment(t *testing.T) {
 	parentID := "parent-1"
 	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
 		return p.ParentExpenseID == nil && p.Installments == 3
-	})).Return(Expense{ID: parentID, Amount: 300, Installments: 3, FirstDueDate: &firstDue}, nil)
+	})).Return(Expense{ID: parentID, Amount: decimal.NewFromInt(300), Installments: 3, FirstDueDate: &firstDue}, nil)
 
 	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
 		return p.ParentExpenseID != nil && *p.ParentExpenseID == parentID
@@ -361,12 +362,12 @@ func TestExpenseService_GetTotalByGroup_Empty(t *testing.T) {
 	svc := NewExpenseService(mockExpense, new(mockExpenseSplitRepo), new(mockCategoryRepo), new(mockGroupMemberRepo), new(mockNotifRepo))
 	ctx := context.Background()
 
-	mockExpense.On("GetTotalByGroup", ctx, "g1").Return(0.0, nil)
+	mockExpense.On("GetTotalByGroup", ctx, "g1").Return(decimal.Zero, nil)
 
 	total, err := svc.GetTotalByGroup(ctx, "g1")
 
 	assert.NoError(t, err)
-	assert.Equal(t, 0.0, total)
+	assert.True(t, total.Equal(decimal.Zero))
 }
 
 func TestExpenseService_MarkSplitAsPaid(t *testing.T) {
@@ -393,12 +394,12 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 
 	firstDue := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
 	splits := []CreateExpenseSplitParams{
-		{UserID: "u1", Amount: 50},
-		{UserID: "u2", Amount: 50},
+		{UserID: "u1", Amount: decimal.NewFromInt(50)},
+		{UserID: "u2", Amount: decimal.NewFromInt(50)},
 	}
 	params := CreateExpenseWithSplitsParams{
 		Expense: CreateExpenseParams{
-			Amount:       100,
+			Amount:       decimal.NewFromInt(100),
 			CategoryID:   "cat1",
 			Installments: 2,
 			FirstDueDate: &firstDue,
@@ -409,15 +410,15 @@ func TestExpenseService_Create_InstallmentWithSplits(t *testing.T) {
 	parentID := "parent-1"
 	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
 		return p.ParentExpenseID == nil && p.Installments == 2
-	})).Return(Expense{ID: parentID, Amount: 100, Installments: 2, FirstDueDate: &firstDue}, nil)
+	})).Return(Expense{ID: parentID, Amount: decimal.NewFromInt(100), Installments: 2, FirstDueDate: &firstDue}, nil)
 
 	mockExpense.On("Create", ctx, mock.MatchedBy(func(p CreateExpenseParams) bool {
 		return p.ParentExpenseID != nil && *p.ParentExpenseID == parentID
 	})).Return(Expense{}, nil).Times(2)
 
 	childSplits := []CreateExpenseSplitParams{
-		{UserID: "u1", Amount: 25},
-		{UserID: "u2", Amount: 25},
+		{UserID: "u1", Amount: decimal.NewFromInt(25)},
+		{UserID: "u2", Amount: decimal.NewFromInt(25)},
 	}
 	mockSplit.On("CreateMany", ctx, "", childSplits).Return(int64(2), nil).Times(2)
 

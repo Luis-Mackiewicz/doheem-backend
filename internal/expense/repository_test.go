@@ -8,6 +8,7 @@ import (
 	"doheem-backend/internal/db"
 	"doheem-backend/internal/dbtest"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,7 @@ func TestExpenseRepo_CreateAndGetByID(t *testing.T) {
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
 		GroupID:        group.ID,
 		Description:    "Pizza dinner",
-		Amount:         120.00,
+		Amount:         decimal.NewFromInt(120),
 		CategoryID:     category.ID,
 		CompetenceDate: time.Now(),
 		DueDate:        time.Now().AddDate(0, 0, 30),
@@ -37,7 +38,7 @@ func TestExpenseRepo_CreateAndGetByID(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, expense.ID)
 	assert.Equal(t, "Pizza dinner", expense.Description)
-	assert.Equal(t, 120.00, expense.Amount)
+	assert.True(t, expense.Amount.Equal(decimal.NewFromInt(120)))
 	assert.Equal(t, "equal", expense.SplitMode)
 
 	got, err := expenseRepo.GetByID(ctx, expense.ID)
@@ -56,13 +57,13 @@ func TestExpenseRepo_ListByGroup(t *testing.T) {
 
 	expenseRepo.Create(ctx, CreateExpenseParams{
 		GroupID: group.ID, Description: "Expense 1",
-		Amount: 50, CategoryID: category.ID, CompetenceDate: time.Now(),
+		Amount: decimal.NewFromInt(50), CategoryID: category.ID, CompetenceDate: time.Now(),
 		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
 		Installments: 1,
 	})
 	expenseRepo.Create(ctx, CreateExpenseParams{
 		GroupID: group.ID, Description: "Expense 2",
-		Amount: 100, CategoryID: category.ID, CompetenceDate: time.Now(),
+		Amount: decimal.NewFromInt(100), CategoryID: category.ID, CompetenceDate: time.Now(),
 		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
 		Installments: 1,
 	})
@@ -94,7 +95,7 @@ func TestExpenseRepo_Update(t *testing.T) {
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
 		GroupID: group.ID, Description: "Original",
-		Amount: 100, CategoryID: category.ID, CompetenceDate: time.Now(),
+		Amount: decimal.NewFromInt(100), CategoryID: category.ID, CompetenceDate: time.Now(),
 		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
 		Installments: 1,
 	})
@@ -122,7 +123,7 @@ func TestExpenseRepo_Delete(t *testing.T) {
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
 		GroupID: group.ID, Description: "Delete me",
-		Amount: 50, CategoryID: category.ID, CompetenceDate: time.Now(),
+		Amount: decimal.NewFromInt(50), CategoryID: category.ID, CompetenceDate: time.Now(),
 		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "equal",
 		Installments: 1,
 	})
@@ -173,15 +174,15 @@ func TestExpenseSplitRepo_CreateMany(t *testing.T) {
 
 	expense, err := expenseRepo.Create(ctx, CreateExpenseParams{
 		GroupID: group.ID, Description: "Split test",
-		Amount: 100, CategoryID: category.ID, CompetenceDate: time.Now(),
+		Amount: decimal.NewFromInt(100), CategoryID: category.ID, CompetenceDate: time.Now(),
 		DueDate: time.Now().AddDate(0, 0, 30), PaidBy: user.ID, SplitMode: "custom",
 		Installments: 1,
 	})
 	require.NoError(t, err)
 
 	count, err := splitRepo.CreateMany(ctx, expense.ID, []CreateExpenseSplitParams{
-		{UserID: user.ID, Amount: 60},
-		{UserID: user2.ID, Amount: 40},
+		{UserID: user.ID, Amount: decimal.NewFromInt(60)},
+		{UserID: user2.ID, Amount: decimal.NewFromInt(40)},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), count)

@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"time"
 
 	"doheem-backend/internal/group"
 	"doheem-backend/internal/notification"
+
+	"github.com/shopspring/decimal"
 )
 
 type ExpenseService struct {
@@ -49,11 +50,11 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 		params.Splits = calculated
 	}
 
-	var totalFromSplits float64
+	var totalFromSplits decimal.Decimal
 	for _, sp := range params.Splits {
-		totalFromSplits += sp.Amount
+		totalFromSplits = totalFromSplits.Add(sp.Amount)
 	}
-	if totalFromSplits > 0 && math.Abs(totalFromSplits-params.Expense.Amount) > 0.005 {
+	if totalFromSplits.GreaterThan(decimal.Zero) && totalFromSplits.Sub(params.Expense.Amount).Abs().GreaterThan(decimal.NewFromInt(5).Div(decimal.NewFromInt(1000))) {
 		return Expense{}, ErrInvalidSplitTotal
 	}
 
@@ -77,15 +78,15 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 		}
 
 		installmentCount := parentExpense.Installments
-		installmentBase := math.Round(parentExpense.Amount*100/float64(installmentCount)) / 100
+		installmentBase := parentExpense.Amount.Div(decimal.NewFromInt(int64(installmentCount))).Round(2)
 
 		for i := int32(1); i <= installmentCount; i++ {
 			index := i
 			total := installmentCount
 			childParams := params.Expense
 			if i == installmentCount {
-				childParams.Amount = parentExpense.Amount - installmentBase*float64(installmentCount-1)
-				childParams.Amount = math.Round(childParams.Amount*100) / 100
+				childParams.Amount = parentExpense.Amount.Sub(installmentBase.Mul(decimal.NewFromInt(int64(installmentCount - 1))))
+				childParams.Amount = childParams.Amount.Round(2)
 			} else {
 				childParams.Amount = installmentBase
 			}
@@ -105,12 +106,12 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 			if len(params.Splits) > 0 {
 				childSplits := make([]CreateExpenseSplitParams, len(params.Splits))
 				for j, sp := range params.Splits {
-					splitAmount := sp.Amount / float64(installmentCount)
+					splitAmount := sp.Amount.Div(decimal.NewFromInt(int64(installmentCount)))
 					if i == installmentCount {
-						remaining := sp.Amount - splitAmount*float64(installmentCount-1)
-						splitAmount = math.Round(remaining*100) / 100
+						remaining := sp.Amount.Sub(splitAmount.Mul(decimal.NewFromInt(int64(installmentCount - 1))))
+						splitAmount = remaining.Round(2)
 					} else {
-						splitAmount = math.Round(splitAmount*100) / 100
+						splitAmount = splitAmount.Round(2)
 					}
 					childSplits[j] = CreateExpenseSplitParams{
 						UserID: sp.UserID,
@@ -128,9 +129,9 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 						if sp.UserID == params.Expense.PaidBy {
 							continue
 						}
-						installmentSplit := math.Round(sp.Amount/float64(installmentCount)*100) / 100
+						installmentSplit := sp.Amount.Div(decimal.NewFromInt(int64(installmentCount))).Round(2)
 						title := fmt.Sprintf("Nova despesa: %s", params.Expense.Description)
-						message := fmt.Sprintf("R$ %.2f (%dx de R$ %.2f) — sua cota: R$ %.2f/mês", params.Expense.Amount, installmentCount, installmentBase, installmentSplit)
+						message := fmt.Sprintf("R$ %s (%dx de R$ %s) — sua cota: R$ %s/mês", params.Expense.Amount.StringFixed(2), installmentCount, installmentBase.StringFixed(2), installmentSplit.StringFixed(2))
 						relatedID := &child.ID
 						s.notifRepo.Create(ctx, notification.CreateNotificationParams{
 							UserID:    sp.UserID,
@@ -163,7 +164,7 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 				continue
 			}
 			title := fmt.Sprintf("Nova despesa: %s", params.Expense.Description)
-			message := fmt.Sprintf("R$ %.2f — sua cota: R$ %.2f", params.Expense.Amount, sp.Amount)
+			message := fmt.Sprintf("R$ %s — sua cota: R$ %s", params.Expense.Amount.StringFixed(2), sp.Amount.StringFixed(2))
 			relatedID := &expense.ID
 			s.notifRepo.Create(ctx, notification.CreateNotificationParams{
 				UserID:    sp.UserID,
@@ -178,18 +179,19 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 	return expense, nil
 }
 
-func splitEqually(total float64, userIDs []string) []CreateExpenseSplitParams {
+func splitEqually(total decimal.Decimal, userIDs []string) []CreateExpenseSplitParams {
 	count := len(userIDs)
 	if count == 0 {
 		return nil
 	}
-	base := math.Floor(total*100/float64(count)) / 100
-	remainder := math.Round((total-base*float64(count))*100) / 100
+	countDec := decimal.NewFromInt(int64(count))
+	base := total.Mul(decimal.NewFromInt(100)).Div(countDec).Floor().Div(decimal.NewFromInt(100))
+	remainder := total.Sub(base.Mul(countDec)).Round(2)
 	splits := make([]CreateExpenseSplitParams, count)
 	for i, uid := range userIDs {
 		v := base
 		if i == 0 {
-			v = math.Round((base+remainder)*100) / 100
+			v = base.Add(remainder).Round(2)
 		}
 		splits[i] = CreateExpenseSplitParams{UserID: uid, Amount: v}
 	}
@@ -290,7 +292,7 @@ func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExp
 	}
 
 	modeChanged := params.SplitMode != nil && finalMode != expense.SplitMode
-	amountChanged := params.Amount != nil && finalAmount != expense.Amount
+	amountChanged := params.Amount != nil && !finalAmount.Equal(expense.Amount)
 
 	if modeChanged || amountChanged {
 		existingSplits, _ := s.expenseSplitRepo.ListByExpense(ctx, id)
@@ -322,28 +324,28 @@ func (s *ExpenseService) Update(ctx context.Context, id string, params UpdateExp
 			customSplits := params.Splits
 			if len(customSplits) == 0 && amountChanged && !modeChanged {
 				for _, sp := range existingSplits {
-					scaled := math.Round(sp.Amount/expense.Amount*finalAmount*100) / 100
+					scaled := sp.Amount.Div(expense.Amount).Mul(finalAmount).Round(2)
 					customSplits = append(customSplits, CreateExpenseSplitParams{
 						UserID: sp.UserID,
 						Amount: scaled,
 					})
 				}
 				if len(customSplits) > 0 {
-					var total float64
+					var total decimal.Decimal
 					for _, sp := range customSplits {
-						total += sp.Amount
+						total = total.Add(sp.Amount)
 					}
-					customSplits[0].Amount = math.Round((customSplits[0].Amount+finalAmount-total)*100) / 100
+					customSplits[0].Amount = customSplits[0].Amount.Add(finalAmount).Sub(total).Round(2)
 				}
 			}
 			if len(customSplits) == 0 {
 				return Expense{}, ErrInvalidSplitMode
 			}
-			var total float64
+			var total decimal.Decimal
 			for _, sp := range customSplits {
-				total += sp.Amount
+				total = total.Add(sp.Amount)
 			}
-			if math.Abs(total-finalAmount) > 0.005 {
+			if total.Sub(finalAmount).Abs().GreaterThan(decimal.NewFromInt(5).Div(decimal.NewFromInt(1000))) {
 				return Expense{}, ErrInvalidSplitTotal
 			}
 			splits = customSplits
@@ -404,7 +406,7 @@ func (s *ExpenseService) Delete(ctx context.Context, id, userID string) error {
 	return s.expenseRepo.Delete(ctx, id)
 }
 
-func (s *ExpenseService) GetTotalByGroup(ctx context.Context, groupID string) (float64, error) {
+func (s *ExpenseService) GetTotalByGroup(ctx context.Context, groupID string) (decimal.Decimal, error) {
 	return s.expenseRepo.GetTotalByGroup(ctx, groupID)
 }
 
@@ -422,15 +424,15 @@ func (s *ExpenseService) AutoRestoreFixedExpenses(ctx context.Context) error {
 	for _, origin := range origins {
 		count, err := s.expenseRepo.CountCloneByMonth(ctx, origin.ID, firstOfMonth, lastOfMonth)
 		if err != nil {
-			slog.Warn("failed to check clone for fixed expense", "id", origin.ID, "error", err)
+			slog.Warn("falha ao contar clones para despesa fixa", "id", origin.ID, "error", err)
 			continue
 		}
 		if count > 0 {
 			continue
 		}
 
-	cloneDue := sameDayInMonth(origin.DueDate, currentYear, currentMonth)
-	cloneCompetence := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
+		cloneDue := sameDayInMonth(origin.DueDate, currentYear, currentMonth)
+		cloneCompetence := sameDayInMonth(origin.CompetenceDate, currentYear, currentMonth)
 
 		cloneParams := CreateExpenseParams{
 			GroupID:        origin.GroupID,

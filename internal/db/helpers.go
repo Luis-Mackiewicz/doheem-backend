@@ -2,10 +2,10 @@ package db
 
 import (
 	"encoding/json"
-	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 )
 
 func UUIDFromString(s string) pgtype.UUID {
@@ -24,26 +24,29 @@ func UUIDToString(u pgtype.UUID) string {
 	return v.(string)
 }
 
-func NumericFromFloat64(f float64) pgtype.Numeric {
+func NumericFromDecimal(d decimal.Decimal) pgtype.Numeric {
 	var n pgtype.Numeric
-	if err := n.Scan(strconv.FormatFloat(f, 'f', -1, 64)); err != nil {
+	if err := n.Scan(d.String()); err != nil {
 		n.Valid = false
 		return n
 	}
 	return n
 }
 
-func NumericToFloat64(n pgtype.Numeric) float64 {
+func NumericToDecimal(n pgtype.Numeric) decimal.Decimal {
 	if !n.Valid {
-		return 0
+		return decimal.Zero
 	}
 	v, _ := n.Value()
 	s, ok := v.(string)
 	if !ok {
-		return 0
+		return decimal.Zero
 	}
-	f, _ := strconv.ParseFloat(s, 64)
-	return f
+	d, err := decimal.NewFromString(s)
+	if err != nil {
+		return decimal.Zero
+	}
+	return d
 }
 
 func TextFromStringPtr(s *string) pgtype.Text {

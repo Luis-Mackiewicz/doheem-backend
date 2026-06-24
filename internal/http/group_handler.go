@@ -8,6 +8,7 @@ import (
 	"doheem-backend/internal/group"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/shopspring/decimal"
 )
 
 const membersCacheTTL = 30 * time.Second
@@ -101,10 +102,10 @@ func (h *GroupHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		Name        *string  `json:"name,omitempty"`
-		Description *string  `json:"description,omitempty"`
-		MonthlyFee  *float64 `json:"monthly_fee,omitempty"`
-		PhotoURL    *string  `json:"photo_url,omitempty"`
+		Name        *string          `json:"name,omitempty"`
+		Description *string          `json:"description,omitempty"`
+		MonthlyFee  *decimal.Decimal `json:"monthly_fee,omitempty"`
+		PhotoURL    *string          `json:"photo_url,omitempty"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
@@ -200,14 +201,14 @@ func (h *GroupHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 }
 
 type groupResponse struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	MonthlyFee  float64 `json:"monthly_fee"`
-	PhotoURL    *string `json:"photo_url,omitempty"`
-	InviteToken *string `json:"invite_token,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	MonthlyFee  decimal.Decimal `json:"monthly_fee"`
+	PhotoURL    *string         `json:"photo_url,omitempty"`
+	InviteToken *string         `json:"invite_token,omitempty"`
+	CreatedAt   string          `json:"created_at"`
+	UpdatedAt   string          `json:"updated_at"`
 }
 
 type groupMemberResponse struct {

@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 type Expense struct {
 	ID               string
 	GroupID          string
 	Description      string
-	Amount           float64
+	Amount           decimal.Decimal
 	CategoryID       string
 	CompetenceDate   time.Time
 	DueDate          time.Time
@@ -31,7 +33,7 @@ type Expense struct {
 type CreateExpenseParams struct {
 	GroupID          string
 	Description      string
-	Amount           float64
+	Amount           decimal.Decimal
 	CategoryID       string
 	CompetenceDate   time.Time
 	DueDate          time.Time
@@ -49,7 +51,7 @@ type CreateExpenseParams struct {
 
 type UpdateExpenseParams struct {
 	Description     *string
-	Amount          *float64
+	Amount          *decimal.Decimal
 	CompetenceDate  *time.Time
 	DueDate         *time.Time
 	CategoryID      *string
@@ -69,7 +71,7 @@ type ExpenseSplit struct {
 	ID              string
 	ExpenseID       string
 	UserID          string
-	Amount          float64
+	Amount          decimal.Decimal
 	IsPaid          bool
 	PaidAt          *time.Time
 	CreatedAt       time.Time
@@ -85,8 +87,8 @@ type ExpenseSplitWithUser struct {
 }
 
 type UserBalance struct {
-	TotalOwed float64
-	TotalPaid float64
+	TotalOwed decimal.Decimal
+	TotalPaid decimal.Decimal
 }
 
 type ExpenseRepository interface {
@@ -103,7 +105,7 @@ type ExpenseRepository interface {
 	Update(ctx context.Context, id string, params UpdateExpenseParams) (Expense, error)
 	Delete(ctx context.Context, id string) error
 	DeleteByParent(ctx context.Context, parentID string) error
-	GetTotalByGroup(ctx context.Context, groupID string) (float64, error)
+	GetTotalByGroup(ctx context.Context, groupID string) (decimal.Decimal, error)
 }
 
 type ExpenseCategoryRepository interface {
@@ -119,7 +121,7 @@ type ExpenseSplitRepository interface {
 	ListByExpense(ctx context.Context, expenseID string) ([]ExpenseSplitWithUser, error)
 	ListByExpenseIDs(ctx context.Context, expenseIDs []string) ([]ExpenseSplitWithUser, error)
 	ListByUser(ctx context.Context, userID, groupID string) ([]ExpenseSplit, error)
-	Create(ctx context.Context, expenseID, userID string, amount float64) (ExpenseSplit, error)
+	Create(ctx context.Context, expenseID, userID string, amount decimal.Decimal) (ExpenseSplit, error)
 	CreateMany(ctx context.Context, expenseID string, splits []CreateExpenseSplitParams) (int64, error)
 	MarkAsPaid(ctx context.Context, id string, receiptData, receiptType, receiptFileName *string) error
 	HasPaidSplits(ctx context.Context, expenseID string) (bool, error)
@@ -129,12 +131,12 @@ type ExpenseSplitRepository interface {
 
 type CreateExpenseSplitParams struct {
 	UserID string
-	Amount float64
+	Amount decimal.Decimal
 }
 
 type CalculateSplitsParams struct {
 	GroupID         string
-	Amount          float64
+	Amount          decimal.Decimal
 	SplitMode       string
 	SelectedUserIDs []string
 }
