@@ -32,7 +32,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	dueDate, err := time.Parse("2006-01-02", req.DueDate)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid due_date, use YYYY-MM-DD")
+		respondError(w, http.StatusBadRequest, "due_date inválida, use AAAA-MM-DD")
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *TaskHandler) CreateOccurrence(w http.ResponseWriter, r *http.Request) {
 	}
 	dueDate, err := time.Parse("2006-01-02", req.DueDate)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid due_date, use YYYY-MM-DD")
+		respondError(w, http.StatusBadRequest, "due_date inválida, use AAAA-MM-DD")
 		return
 	}
 	occurrence, err := h.svc.CreateOccurrence(r.Context(), taskID, dueDate, req.Status)

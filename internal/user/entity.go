@@ -55,12 +55,12 @@ type UserRepository interface {
 }
 
 var (
-	ErrUserNotFound           = errors.New("user not found")
-	ErrInvalidCredentials     = errors.New("invalid credentials")
-	ErrEmailAlreadyExists     = errors.New("email already exists")
-	ErrDocumentAlreadyExists  = errors.New("document already exists")
-	ErrPhoneAlreadyExists     = errors.New("phone already exists")
-	ErrRefreshTokenNotFound   = errors.New("refresh token not found")
-	ErrRefreshTokenExpired    = errors.New("refresh token has expired")
-	ErrRefreshTokenRevoked    = errors.New("refresh token has been revoked")
+	ErrUserNotFound          = errors.New("usuário não encontrado")
+	ErrInvalidCredentials    = errors.New("credenciais inválidas")
+	ErrEmailAlreadyExists    = errors.New("email já existe")
+	ErrDocumentAlreadyExists = errors.New("documento já existe")
+	ErrPhoneAlreadyExists    = errors.New("telefone já existe")
+	ErrRefreshTokenNotFound  = errors.New("token de atualização não encontrado")
+	ErrRefreshTokenExpired   = errors.New("refresh token expirado")
+	ErrRefreshTokenRevoked   = errors.New("refresh token revogado")
 )

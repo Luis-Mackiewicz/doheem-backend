@@ -40,12 +40,12 @@ type NotificationRepository interface {
 }
 
 const (
-	MaxReminders      = 5
-	MinIntervalDays   = 3
+	MaxReminders    = 5
+	MinIntervalDays = 3
 )
 
 var (
-	ErrNotificationNotFound = errors.New("notification not found")
+	ErrNotificationNotFound  = errors.New("notificação não encontrada")
 	ErrReminderLimitExceeded = errors.New("limite de lembretes atingido para esta despesa")
 	ErrReminderTooSoon       = errors.New("aguarde o intervalo mínimo entre lembretes")
 )

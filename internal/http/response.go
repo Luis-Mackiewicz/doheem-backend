@@ -52,7 +52,7 @@ func respondError(w http.ResponseWriter, status int, msg string) {
 
 func respondValidationError(w http.ResponseWriter, errs []validationError) {
 	respondJSON(w, http.StatusBadRequest, map[string]any{
-		"error":  "validation failed",
+		"error":  "validação falhou",
 		"fields": errs,
 	})
 }

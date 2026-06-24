@@ -63,9 +63,9 @@ type GroupMemberRepository interface {
 }
 
 var (
-	ErrGroupNotFound       = errors.New("group not found")
-	ErrMemberNotFound      = errors.New("member not found")
-	ErrMemberAlreadyExists = errors.New("member already exists")
-	ErrCannotRemoveOwner   = errors.New("cannot remove the group owner")
-	ErrGroupFull           = errors.New("group has reached the maximum of 30 members")
+	ErrGroupNotFound       = errors.New("grupo não encontrado")
+	ErrMemberNotFound      = errors.New("membro não encontrado")
+	ErrMemberAlreadyExists = errors.New("membro já existe")
+	ErrCannotRemoveOwner   = errors.New("não é possível remover o proprietário do grupo")
+	ErrGroupFull           = errors.New("o grupo atingiu o máximo de 30 membros")
 )

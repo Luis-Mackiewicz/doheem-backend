@@ -11,8 +11,8 @@ import (
 )
 
 type UserService struct {
-	repo          UserRepository
-	refreshRepo   RefreshTokenRepository
+	repo        UserRepository
+	refreshRepo RefreshTokenRepository
 }
 
 func NewUserService(repo UserRepository, refreshRepo RefreshTokenRepository) *UserService {
@@ -128,7 +128,7 @@ func (s *UserService) Delete(ctx context.Context, id string) error {
 func (s *UserService) StoreRefreshToken(ctx context.Context, userID, tokenHash string, expiresAt time.Time) error {
 	id, err := uuid.NewRandom()
 	if err != nil {
-		return fmt.Errorf("failed to generate uuid: %w", err)
+		return fmt.Errorf("falha ao gerar uuid: %w", err)
 	}
 	return s.refreshRepo.Create(ctx, CreateRefreshTokenParams{
 		ID:        id.String(),

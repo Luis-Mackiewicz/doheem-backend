@@ -80,38 +80,38 @@ func initLogger(cfg config.Config) {
 func initPostgres(ctx context.Context, url string) *pgxpool.Pool {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
-		slog.Error("failed to parse database config", "error", err)
+		slog.Error("falha ao analisar configuração do banco de dados", "error", err)
 		os.Exit(1)
 	}
 	cfg.MaxConns = 25
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
+		slog.Error("falha ao conectar ao banco de dados", "error", err)
 		os.Exit(1)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		slog.Error("failed to ping database", "error", err)
+		slog.Error("falha ao pingar banco de dados", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("connected to database")
+	slog.Info("conectado ao banco de dados")
 	return pool
 }
 
 func initRedis(ctx context.Context, url string) *redis.Client {
 	rdb, err := redis.ParseURL(url)
 	if err != nil {
-		slog.Error("failed to parse redis URL", "error", err)
+		slog.Error("falha ao analisar URL do redis", "error", err)
 		os.Exit(1)
 	}
 
 	client := redis.NewClient(rdb)
 	if err := client.Ping(ctx).Err(); err != nil {
-		slog.Error("failed to connect to redis", "error", err)
+		slog.Error("falha ao conectar ao redis", "error", err)
 		os.Exit(1)
 	}
-	slog.Info("connected to redis")
+	slog.Info("conectado ao redis")
 	return client
 }
 
@@ -125,7 +125,7 @@ func runServer(ctx context.Context, handler http.Handler, port string) {
 	}
 
 	go func() {
-		slog.Info("Doheem server is running", "port", port)
+		slog.Info("Doheem server está em execução", "port", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
@@ -133,24 +133,24 @@ func runServer(ctx context.Context, handler http.Handler, port string) {
 	}()
 
 	<-ctx.Done()
-	slog.Info("shutting down server...")
+	slog.Info("desligando server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("server shutdown error", "error", err)
+		slog.Error("desligamento do server error", "error", err)
 	}
-	slog.Info("server stopped")
+	slog.Info("server desligado")
 }
 
 func startFixedExpenseScheduler(svc *expense.ExpenseService) {
 	go func() {
 		ctx := context.Background()
 		if err := svc.AutoRestoreFixedExpenses(ctx); err != nil {
-			slog.Warn("fixed expense restore on startup failed", "error", err)
+			slog.Warn("falha ao restaurar despesas fixas na inicialização", "error", err)
 		} else {
-			slog.Info("fixed expenses restored on startup")
+			slog.Info("despesas fixas restauradas na inicialização")
 		}
 	}()
 
@@ -160,7 +160,7 @@ func startFixedExpenseScheduler(svc *expense.ExpenseService) {
 		for range ticker.C {
 			ctx := context.Background()
 			if err := svc.AutoRestoreFixedExpenses(ctx); err != nil {
-				slog.Warn("fixed expense restore failed", "error", err)
+				slog.Warn("falha ao restaurar despesas fixas", "error", err)
 			}
 		}
 	}()

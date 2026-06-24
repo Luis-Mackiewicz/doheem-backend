@@ -34,23 +34,23 @@ func TestMain(m *testing.M) {
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
 		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
+			wait.ForLog("o banco de dados está pronto para receber conexões").
 				WithOccurrence(2).
 				WithStartupTimeout(120*time.Second),
 		),
 	)
 	if err != nil {
-		panic("failed to start postgres container: " + err.Error())
+		panic("falha ao iniciar o postgres: " + err.Error())
 	}
 
 	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		panic("failed to get connection string: " + err.Error())
+		panic("falha ao obter a string de conexão: " + err.Error())
 	}
 
 	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
-		panic("failed to connect to database: " + err.Error())
+		panic("falha ao conectar ao banco de dados: " + err.Error())
 	}
 
 	migrations := []string{
@@ -66,15 +66,15 @@ func TestMain(m *testing.M) {
 	for _, path := range migrations {
 		migration, err := os.ReadFile(path)
 		if err != nil {
-			panic("failed to read migration file " + path + ": " + err.Error())
+			panic("falha ao ler o arquivo de migração " + path + ": " + err.Error())
 		}
 		if _, err := pool.Exec(ctx, string(migration)); err != nil {
-			panic("failed to run migration " + path + ": " + err.Error())
+			panic("falha ao executar a migração " + path + ": " + err.Error())
 		}
 	}
 
 	if err := pool.Ping(ctx); err != nil {
-		panic("failed to ping database: " + err.Error())
+		panic("falha ao pingar o banco de dados: " + err.Error())
 	}
 
 	TestPool = pool
@@ -91,7 +91,7 @@ func NewTxQueries(t *testing.T) *db.Queries {
 	ctx := context.Background()
 	tx, err := TestPool.Begin(ctx)
 	if err != nil {
-		t.Fatalf("failed to begin transaction: %v", err)
+		t.Fatalf("falha ao iniciar transação: %v", err)
 	}
 	t.Cleanup(func() {
 		tx.Rollback(ctx)

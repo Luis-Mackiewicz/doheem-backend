@@ -64,7 +64,7 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 
 	if params.Expense.Installments > 1 {
 		if params.Expense.FirstDueDate == nil {
-			return Expense{}, errors.New("first_due_date is required for installment expenses")
+			return Expense{}, errors.New("first_due_date é obrigatória para despesas parceladas")
 		}
 
 		parent := params.Expense

@@ -42,19 +42,19 @@ func (h *ExpenseHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	competenceDate, err := time.Parse("2006-01-02", req.CompetenceDate)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid competence_date, use YYYY-MM-DD")
+		respondError(w, http.StatusBadRequest, "competence_date inválida, use AAAA-MM-DD")
 		return
 	}
 	dueDate, err := time.Parse("2006-01-02", req.DueDate)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid due_date, use YYYY-MM-DD")
+		respondError(w, http.StatusBadRequest, "due_date inválida, use AAAA-MM-DD")
 		return
 	}
 	var firstDueDate *time.Time
 	if req.FirstDueDate != nil {
 		t, err := time.Parse("2006-01-02", *req.FirstDueDate)
 		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid first_due_date, use YYYY-MM-DD")
+			respondError(w, http.StatusBadRequest, "first_due_date inválida, use AAAA-MM-DD")
 			return
 		}
 		firstDueDate = &t

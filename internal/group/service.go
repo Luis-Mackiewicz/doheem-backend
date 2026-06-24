@@ -179,7 +179,7 @@ func (s *GroupService) Join(ctx context.Context, groupID, userID string) error {
 	}
 
 	if group.InviteToken == nil {
-		return fmt.Errorf("group has no invite token")
+		return fmt.Errorf("grupo não possui token de convite")
 	}
 
 	count, err := s.groupMemberRepo.Count(ctx, groupID)

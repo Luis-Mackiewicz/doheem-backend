@@ -12,7 +12,7 @@ import (
 )
 
 type JWTService struct {
-	secret          []byte
+	secret           []byte
 	accessExpiresIn  time.Duration
 	refreshExpiresIn time.Duration
 }
@@ -47,16 +47,16 @@ func (s *JWTService) GenerateToken(userID string) (string, error) {
 func (s *JWTService) ValidateToken(tokenStr string) (string, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			return nil, fmt.Errorf("token inválido: método de assinatura inesperado: %v", t.Header["alg"])
 		}
 		return s.secret, nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("invalid token: %w", err)
+		return "", fmt.Errorf("token inválido: %w", err)
 	}
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
-		return "", fmt.Errorf("invalid token claims")
+		return "", fmt.Errorf("token inválido")
 	}
 	return claims.UserID, nil
 }
@@ -74,7 +74,7 @@ func (s *JWTService) GenerateRefreshToken(userID string) (token string, hash str
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	token, err = t.SignedString(s.secret)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to sign refresh token: %w", err)
+		return "", "", fmt.Errorf("falha ao enviar refresh token: %w", err)
 	}
 	h := sha256.Sum256([]byte(token))
 	hash = fmt.Sprintf("%x", h)
@@ -118,17 +118,17 @@ func (s *JWTService) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			respondError(w, http.StatusUnauthorized, "missing authorization header")
+			respondError(w, http.StatusUnauthorized, "header de autorização ausente")
 			return
 		}
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			respondError(w, http.StatusUnauthorized, "invalid authorization format, use Bearer <token>")
+			respondError(w, http.StatusUnauthorized, "formato de autorização inválido, use Bearer <token>")
 			return
 		}
 		userID, err := s.ValidateToken(parts[1])
 		if err != nil {
-			respondError(w, http.StatusUnauthorized, "invalid or expired token")
+			respondError(w, http.StatusUnauthorized, "token inválido ou expirado")
 			return
 		}
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)

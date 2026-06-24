@@ -79,7 +79,7 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 					"request_id", requestID,
 					"stack", string(debug.Stack()),
 				)
-				respondError(w, http.StatusInternalServerError, "internal server error")
+				respondError(w, http.StatusInternalServerError, "erro interno do servidor")
 			}
 		}()
 		next.ServeHTTP(w, r)

@@ -57,7 +57,7 @@ func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 
 	if _, err := h.svc.GetMember(r.Context(), groupID, userID); err != nil {
-		respondError(w, http.StatusForbidden, "you are not a member of this group")
+		respondError(w, http.StatusForbidden, "você não é membro deste grupo")
 		return
 	}
 

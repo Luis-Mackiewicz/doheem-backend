@@ -66,15 +66,15 @@ type ExpenseCategory struct {
 }
 
 type ExpenseSplit struct {
-	ID             string
-	ExpenseID      string
-	UserID         string
-	Amount         float64
-	IsPaid         bool
-	PaidAt         *time.Time
-	CreatedAt      time.Time
-	ReceiptData    *string
-	ReceiptType    *string
+	ID              string
+	ExpenseID       string
+	UserID          string
+	Amount          float64
+	IsPaid          bool
+	PaidAt          *time.Time
+	CreatedAt       time.Time
+	ReceiptData     *string
+	ReceiptType     *string
 	ReceiptFileName *string
 }
 
@@ -146,16 +146,16 @@ type CreateExpenseWithSplitsParams struct {
 }
 
 var (
-	ErrExpenseNotFound            = errors.New("expense not found")
-	ErrInvalidSplitTotal          = errors.New("split amounts must equal total amount")
-	ErrCategoryNotFound           = errors.New("category not found")
-	ErrForbidden                  = errors.New("forbidden")
-	ErrCannotDeleteWithPaidSplits = errors.New("cannot delete expense with paid splits")
-	ErrCannotEditWithPaidSplits   = errors.New("cannot edit expense with paid splits")
-	ErrInvalidSplitMode           = errors.New("invalid split mode")
-	ErrNoSelectedMembers          = errors.New("select at least 2 members for some split")
-	ErrSplitAlreadyPaid           = errors.New("split already paid")
-	ErrCannotEditInstallmentChild = errors.New("cannot edit an installment child expense directly")
-	ErrCannotEditInstallmentParent    = errors.New("cannot edit an installment parent expense directly")
-	ErrFixedWithInstallments          = errors.New("cannot create a fixed expense with installments")
+	ErrExpenseNotFound             = errors.New("despesa não encontrada")
+	ErrInvalidSplitTotal           = errors.New("os valores das divisões devem ser iguais ao valor total")
+	ErrCategoryNotFound            = errors.New("categoria não encontrada")
+	ErrForbidden                   = errors.New("acesso proibido")
+	ErrCannotDeleteWithPaidSplits  = errors.New("não é possível excluir uma despesa com divisões pagas")
+	ErrCannotEditWithPaidSplits    = errors.New("não é possível editar uma despesa com divisões pagas")
+	ErrInvalidSplitMode            = errors.New("modo de divisão inválido")
+	ErrNoSelectedMembers           = errors.New("selecione pelo menos 2 membros para alguma divisão")
+	ErrSplitAlreadyPaid            = errors.New("divisão já paga")
+	ErrCannotEditInstallmentChild  = errors.New("não é possível editar uma despesa filha de parcelamento diretamente")
+	ErrCannotEditInstallmentParent = errors.New("não é possível editar uma despesa pai de parcelamento diretamente")
+	ErrFixedWithInstallments       = errors.New("não é possível criar uma despesa fixa com parcelamentos")
 )

@@ -77,9 +77,9 @@ type TaskOccurrenceRepository interface {
 }
 
 var (
-	ErrTaskNotFound            = errors.New("task not found")
-	ErrTaskOccurrenceNotFound  = errors.New("task occurrence not found")
-	ErrInvalidDueDate          = errors.New("due date must be in the future")
-	ErrForbidden               = errors.New("forbidden")
-	ErrInvalidStatusTransition = errors.New("invalid status transition")
+	ErrTaskNotFound            = errors.New("task não encontrada")
+	ErrTaskOccurrenceNotFound  = errors.New("ocorrência de tarefa não encontrada")
+	ErrInvalidDueDate          = errors.New("data de vencimento precisa ser no futuro")
+	ErrForbidden               = errors.New("permissão negada")
+	ErrInvalidStatusTransition = errors.New("estado inválido para a transição")
 )
