@@ -79,7 +79,7 @@ func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64,
 func TestGroupService_Create(t *testing.T) {
 	mockGroup := new(mockGroupRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewGroupService(mockGroup, mockMember)
+	svc := NewGroupService(mockGroup, mockMember, nil)
 	ctx := context.Background()
 
 	params := CreateGroupParams{Name: "Test Group"}
@@ -96,7 +96,7 @@ func TestGroupService_Create(t *testing.T) {
 
 func TestGroupService_GetByID_Success(t *testing.T) {
 	mockGroup := new(mockGroupRepo)
-	svc := NewGroupService(mockGroup, new(mockGroupMemberRepo))
+	svc := NewGroupService(mockGroup, new(mockGroupMemberRepo), nil)
 	ctx := context.Background()
 
 	mockGroup.On("GetByID", ctx, "1").Return(Group{ID: "1", Name: "Test"}, nil)
@@ -109,7 +109,7 @@ func TestGroupService_GetByID_Success(t *testing.T) {
 
 func TestGroupService_GetByID_NotFound(t *testing.T) {
 	mockGroup := new(mockGroupRepo)
-	svc := NewGroupService(mockGroup, new(mockGroupMemberRepo))
+	svc := NewGroupService(mockGroup, new(mockGroupMemberRepo), nil)
 	ctx := context.Background()
 
 	mockGroup.On("GetByID", ctx, "999").Return(Group{}, assert.AnError)
@@ -122,7 +122,7 @@ func TestGroupService_GetByID_NotFound(t *testing.T) {
 func TestGroupService_RemoveMember_Owner(t *testing.T) {
 	mockGroup := new(mockGroupRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewGroupService(mockGroup, mockMember)
+	svc := NewGroupService(mockGroup, mockMember, nil)
 	ctx := context.Background()
 
 	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{IsAdmin: true}, nil)
@@ -136,7 +136,7 @@ func TestGroupService_RemoveMember_Owner(t *testing.T) {
 func TestGroupService_RemoveMember_Success(t *testing.T) {
 	mockGroup := new(mockGroupRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewGroupService(mockGroup, mockMember)
+	svc := NewGroupService(mockGroup, mockMember, nil)
 	ctx := context.Background()
 
 	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{IsAdmin: false}, nil)
@@ -151,7 +151,7 @@ func TestGroupService_RemoveMember_Success(t *testing.T) {
 func TestGroupService_GetMember_NotFound(t *testing.T) {
 	mockGroup := new(mockGroupRepo)
 	mockMember := new(mockGroupMemberRepo)
-	svc := NewGroupService(mockGroup, mockMember)
+	svc := NewGroupService(mockGroup, mockMember, nil)
 	ctx := context.Background()
 
 	mockMember.On("Get", ctx, "g1", "u1").Return(GroupMember{}, assert.AnError)

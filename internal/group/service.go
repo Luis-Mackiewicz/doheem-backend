@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+
+	"doheem-backend/internal/audit_log"
 )
 
 func generateInviteToken() string {
@@ -17,15 +19,26 @@ func generateInviteToken() string {
 	return string(b)
 }
 
+type contextKey string
+
+const actorIDKey contextKey = "user_id"
+
+func actorIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(actorIDKey).(string)
+	return id
+}
+
 type GroupService struct {
 	groupRepo       GroupRepository
 	groupMemberRepo GroupMemberRepository
+	auditLogRepo    audit_log.AuditLogRepository
 }
 
-func NewGroupService(groupRepo GroupRepository, groupMemberRepo GroupMemberRepository) *GroupService {
+func NewGroupService(groupRepo GroupRepository, groupMemberRepo GroupMemberRepository, auditLogRepo audit_log.AuditLogRepository) *GroupService {
 	return &GroupService{
 		groupRepo:       groupRepo,
 		groupMemberRepo: groupMemberRepo,
+		auditLogRepo:    auditLogRepo,
 	}
 }
 
@@ -38,6 +51,12 @@ func (s *GroupService) Create(ctx context.Context, params CreateGroupParams, cre
 	_, err = s.groupMemberRepo.Create(ctx, group.ID, creatorID, true)
 	if err != nil {
 		return Group{}, err
+	}
+
+	if s.auditLogRepo != nil {
+		s.auditLogRepo.Create(ctx, group.ID, creatorID, "group", group.ID, "created", map[string]interface{}{
+			"name": params.Name,
+		})
 	}
 
 	return group, nil
@@ -56,7 +75,29 @@ func (s *GroupService) ListByUser(ctx context.Context, userID string) ([]Group, 
 }
 
 func (s *GroupService) Update(ctx context.Context, id string, params UpdateGroupParams) (Group, error) {
-	return s.groupRepo.Update(ctx, id, params)
+	group, err := s.groupRepo.Update(ctx, id, params)
+	if err != nil {
+		return Group{}, err
+	}
+
+	if actorID := actorIDFromContext(ctx); actorID != "" && s.auditLogRepo != nil {
+		changes := make(map[string]interface{})
+		if params.Name != nil {
+			changes["name"] = *params.Name
+		}
+		if params.Description != nil {
+			changes["description"] = *params.Description
+		}
+		if params.MonthlyFee != nil {
+			changes["monthly_fee"] = *params.MonthlyFee
+		}
+		if params.PhotoURL != nil {
+			changes["photo_url"] = *params.PhotoURL
+		}
+		s.auditLogRepo.Create(ctx, id, actorID, "group", id, "updated", changes)
+	}
+
+	return group, nil
 }
 
 func (s *GroupService) AddMember(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
@@ -67,7 +108,19 @@ func (s *GroupService) AddMember(ctx context.Context, groupID, userID string, is
 	if count >= 30 {
 		return GroupMember{}, ErrGroupFull
 	}
-	return s.groupMemberRepo.Create(ctx, groupID, userID, isAdmin)
+	member, err := s.groupMemberRepo.Create(ctx, groupID, userID, isAdmin)
+	if err != nil {
+		return GroupMember{}, err
+	}
+
+	if actorID := actorIDFromContext(ctx); actorID != "" && s.auditLogRepo != nil {
+		s.auditLogRepo.Create(ctx, groupID, actorID, "group_member", member.ID, "member_added", map[string]interface{}{
+			"user_id":  userID,
+			"is_admin": isAdmin,
+		})
+	}
+
+	return member, nil
 }
 
 func (s *GroupService) RemoveMember(ctx context.Context, groupID, userID string) error {
@@ -78,11 +131,33 @@ func (s *GroupService) RemoveMember(ctx context.Context, groupID, userID string)
 	if member.IsAdmin {
 		return ErrCannotRemoveOwner
 	}
-	return s.groupMemberRepo.Remove(ctx, groupID, userID)
+	if err := s.groupMemberRepo.Remove(ctx, groupID, userID); err != nil {
+		return err
+	}
+
+	if actorID := actorIDFromContext(ctx); actorID != "" && s.auditLogRepo != nil {
+		s.auditLogRepo.Create(ctx, groupID, actorID, "group_member", member.ID, "member_removed", map[string]interface{}{
+			"user_id": userID,
+		})
+	}
+
+	return nil
 }
 
 func (s *GroupService) UpdateMemberRole(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
-	return s.groupMemberRepo.UpdateRole(ctx, groupID, userID, isAdmin)
+	member, err := s.groupMemberRepo.UpdateRole(ctx, groupID, userID, isAdmin)
+	if err != nil {
+		return GroupMember{}, err
+	}
+
+	if actorID := actorIDFromContext(ctx); actorID != "" && s.auditLogRepo != nil {
+		s.auditLogRepo.Create(ctx, groupID, actorID, "group_member", member.ID, "member_role_updated", map[string]interface{}{
+			"user_id":  userID,
+			"is_admin": isAdmin,
+		})
+	}
+
+	return member, nil
 }
 
 func (s *GroupService) ListMembers(ctx context.Context, groupID string) ([]GroupMemberWithUser, error) {
@@ -115,9 +190,13 @@ func (s *GroupService) Join(ctx context.Context, groupID, userID string) error {
 		return ErrGroupFull
 	}
 
-	_, err = s.groupMemberRepo.Create(ctx, groupID, userID, false)
+	member, err := s.groupMemberRepo.Create(ctx, groupID, userID, false)
 	if err != nil {
 		return err
+	}
+
+	if s.auditLogRepo != nil {
+		s.auditLogRepo.Create(ctx, groupID, userID, "group_member", member.ID, "member_joined", nil)
 	}
 
 	return nil
@@ -129,6 +208,11 @@ func (s *GroupService) RegenerateInviteToken(ctx context.Context, groupID string
 	if err != nil {
 		return nil, err
 	}
+
+	if actorID := actorIDFromContext(ctx); actorID != "" && s.auditLogRepo != nil {
+		s.auditLogRepo.Create(ctx, groupID, actorID, "group", groupID, "invite_token_regenerated", nil)
+	}
+
 	return &token, nil
 }
 

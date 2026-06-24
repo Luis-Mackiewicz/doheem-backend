@@ -2,12 +2,14 @@ package audit_log
 
 import (
 	"context"
+	"sync"
 
 	"doheem-backend/internal/db"
 )
 
 type AuditLogRepo struct {
-	q *db.Queries
+	mu sync.Mutex
+	q  *db.Queries
 }
 
 func NewAuditLogRepo(q *db.Queries) *AuditLogRepo {
@@ -58,6 +60,9 @@ func (r *AuditLogRepo) ListByEntity(ctx context.Context, entityType, entityID st
 }
 
 func (r *AuditLogRepo) Create(ctx context.Context, groupID, userID, entityType, entityID, action string, changes map[string]interface{}) (AuditLog, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	al, err := r.q.CreateAuditLog(ctx, db.CreateAuditLogParams{
 		GroupID:    db.UUIDFromString(groupID),
 		UserID:     db.UUIDFromString(userID),

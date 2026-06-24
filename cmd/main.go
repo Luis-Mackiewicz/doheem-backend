@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"doheem-backend/internal/audit_log"
 	"doheem-backend/internal/config"
 	"doheem-backend/internal/db"
 	"doheem-backend/internal/expense"
@@ -37,6 +38,8 @@ func main() {
 
 	q := db.New(pool)
 
+	auditLogRepo := audit_log.NewAuditLogRepo(q)
+
 	userRepo := user.NewUserRepo(q)
 	groupRepo := group.NewGroupRepo(q)
 	groupMemberRepo := group.NewGroupMemberRepo(q)
@@ -49,7 +52,7 @@ func main() {
 	refreshTokenRepo := user.NewRefreshTokenRepo(q)
 
 	userSvc := user.NewUserService(userRepo, refreshTokenRepo)
-	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo)
+	groupSvc := group.NewGroupService(groupRepo, groupMemberRepo, auditLogRepo)
 	notificationSvc := notification.NewNotificationService(notificationRepo)
 	expenseSvc := expense.NewExpenseService(expenseRepo, expenseSplitRepo, categoryRepo, groupMemberRepo, notificationRepo)
 	taskSvc := task.NewTaskService(taskRepo, taskOccurrenceRepo, groupMemberRepo, notificationRepo)

@@ -70,7 +70,7 @@ func (m *mockGroupMemberRepo) Count(ctx context.Context, groupID string) (int64,
 func TestGroupCreate_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
 	memberRepo := new(mockGroupMemberRepo)
-	svc := group.NewGroupService(groupRepo, memberRepo)
+	svc := group.NewGroupService(groupRepo, memberRepo, nil)
 	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("Create", mock.Anything, mock.Anything).Return(group.Group{ID: "g1", Name: "My Group"}, nil)
@@ -93,7 +93,7 @@ func TestGroupCreate_Success(t *testing.T) {
 }
 
 func TestGroupCreate_ValidationError(t *testing.T) {
-	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo)), nil)
+	handler := NewGroupHandler(group.NewGroupService(new(mockGroupRepo), new(mockGroupMemberRepo), nil), nil)
 
 	body := `{"name":""}`
 	r := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
@@ -110,7 +110,7 @@ func TestGroupCreate_ValidationError(t *testing.T) {
 
 func TestGroupGetByID_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
-	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
+	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo), nil)
 	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("GetByID", mock.Anything, "g1").Return(group.Group{ID: "g1", Name: "My Group"}, nil)
@@ -130,7 +130,7 @@ func TestGroupGetByID_Success(t *testing.T) {
 
 func TestGroupGetByID_NotFound(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
-	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
+	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo), nil)
 	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("GetByID", mock.Anything, "999").Return(group.Group{}, assert.AnError)
@@ -150,7 +150,7 @@ func TestGroupGetByID_NotFound(t *testing.T) {
 
 func TestGroupList_Success(t *testing.T) {
 	groupRepo := new(mockGroupRepo)
-	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo))
+	svc := group.NewGroupService(groupRepo, new(mockGroupMemberRepo), nil)
 	handler := NewGroupHandler(svc, nil)
 
 	groupRepo.On("ListByUserID", mock.Anything, "test-user-id").Return([]group.Group{
