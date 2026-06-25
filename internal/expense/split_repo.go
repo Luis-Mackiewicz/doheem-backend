@@ -107,17 +107,6 @@ func (r *ExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string, receiptDat
 	})
 }
 
-func (r *ExpenseSplitRepo) MarkAsPaidByExpenseAndUserIDs(ctx context.Context, expenseID string, userIDs []string) error {
-	uuids := make([]pgtype.UUID, len(userIDs))
-	for i, uid := range userIDs {
-		uuids[i] = db.UUIDFromString(uid)
-	}
-	return r.q.MarkExpenseSplitsAsPaidByExpense(ctx, db.MarkExpenseSplitsAsPaidByExpenseParams{
-		ExpenseID: db.UUIDFromString(expenseID),
-		UserIDs:   uuids,
-	})
-}
-
 func (r *ExpenseSplitRepo) HasPaidSplits(ctx context.Context, expenseID string) (bool, error) {
 	return r.q.HasExpensePaidSplits(ctx, db.UUIDFromString(expenseID))
 }

@@ -318,22 +318,3 @@ func (q *Queries) MarkExpenseSplitAsPaid(ctx context.Context, arg MarkExpenseSpl
 	)
 	return err
 }
-
-type MarkExpenseSplitsAsPaidByExpenseParams struct {
-	ExpenseID pgtype.UUID
-	UserIDs   []pgtype.UUID
-}
-
-const markExpenseSplitsAsPaidByExpense = `-- name: MarkExpenseSplitsAsPaidByExpense :exec
-UPDATE expense_splits
-SET is_paid = true, paid_at = NOW()
-WHERE expense_id = $1 AND user_id = ANY($2::uuid[])
-`
-
-func (q *Queries) MarkExpenseSplitsAsPaidByExpense(ctx context.Context, arg MarkExpenseSplitsAsPaidByExpenseParams) error {
-	_, err := q.db.Exec(ctx, markExpenseSplitsAsPaidByExpense,
-		arg.ExpenseID,
-		arg.UserIDs,
-	)
-	return err
-}

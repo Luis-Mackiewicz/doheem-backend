@@ -159,16 +159,6 @@ func (s *ExpenseService) Create(ctx context.Context, params CreateExpenseWithSpl
 			return Expense{}, err
 		}
 
-		var payerIDs []string
-		for _, sp := range params.Splits {
-			if sp.UserID == params.Expense.PaidBy {
-				payerIDs = append(payerIDs, sp.UserID)
-			}
-		}
-		if len(payerIDs) > 0 {
-			_ = s.expenseSplitRepo.MarkAsPaidByExpenseAndUserIDs(ctx, expense.ID, payerIDs)
-		}
-
 		for _, sp := range params.Splits {
 			if sp.UserID == params.Expense.PaidBy {
 				continue

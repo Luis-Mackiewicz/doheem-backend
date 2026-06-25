@@ -29,91 +29,32 @@ func init() {
 	validate.RegisterValidation("cep_br", validateCEPBR)
 }
 
-func validateCPF(fl validator.FieldLevel) bool {
-	d := onlyDigits(fl.Field().String())
-	if len(d) != 11 {
-		return false
-	}
-
-	allSame := true
-	for i := 1; i < 11; i++ {
-		if d[i] != d[0] {
-			allSame = false
-			break
+func allDigitsSame(s string) bool {
+	for i := 1; i < len(s); i++ {
+		if s[i] != s[0] {
+			return false
 		}
 	}
-	if allSame {
-		return false
-	}
+	return true
+}
 
+func checkDigit(digits string, weights []int) int {
 	sum := 0
-	for i := 0; i < 9; i++ {
-		sum += int(d[i]-'0') * (10 - i)
+	for i, w := range weights {
+		sum += int(digits[i]-'0') * w
 	}
-	rem := sum % 11
-	d1 := 0
-	if rem >= 2 {
-		d1 = 11 - rem
+	if rem := sum % 11; rem >= 2 {
+		return 11 - rem
 	}
-	if d1 != int(d[9]-'0') {
-		return false
-	}
+	return 0
+}
 
-	sum = 0
-	for i := 0; i < 10; i++ {
-		sum += int(d[i]-'0') * (11 - i)
-	}
-	rem = sum % 11
-	d2 := 0
-	if rem >= 2 {
-		d2 = 11 - rem
-	}
-	return d2 == int(d[10]-'0')
+func validateCPF(fl validator.FieldLevel) bool {
+	return validateCPFFunc(onlyDigits(fl.Field().String()))
 }
 
 func validateCNPJ(fl validator.FieldLevel) bool {
-	d := onlyDigits(fl.Field().String())
-	if len(d) != 14 {
-		return false
-	}
-
-	allSame := true
-	for i := 1; i < 14; i++ {
-		if d[i] != d[0] {
-			allSame = false
-			break
-		}
-	}
-	if allSame {
-		return false
-	}
-
-	w1 := []int{5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}
-	w2 := []int{6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}
-
-	sum := 0
-	for i := 0; i < 12; i++ {
-		sum += int(d[i]-'0') * w1[i]
-	}
-	rem := sum % 11
-	d1 := 0
-	if rem >= 2 {
-		d1 = 11 - rem
-	}
-	if d1 != int(d[12]-'0') {
-		return false
-	}
-
-	sum = 0
-	for i := 0; i < 13; i++ {
-		sum += int(d[i]-'0') * w2[i]
-	}
-	rem = sum % 11
-	d2 := 0
-	if rem >= 2 {
-		d2 = 11 - rem
-	}
-	return d2 == int(d[13]-'0')
+	return validateCNPJFunc(onlyDigits(fl.Field().String()))
 }
 
 func validateDocument(fl validator.FieldLevel) bool {
@@ -129,81 +70,19 @@ func validateDocument(fl validator.FieldLevel) bool {
 }
 
 func validateCPFFunc(d string) bool {
-	if len(d) != 11 {
+	if len(d) != 11 || allDigitsSame(d) {
 		return false
 	}
-	allSame := true
-	for i := 1; i < 11; i++ {
-		if d[i] != d[0] {
-			allSame = false
-			break
-		}
-	}
-	if allSame {
-		return false
-	}
-	sum := 0
-	for i := 0; i < 9; i++ {
-		sum += int(d[i]-'0') * (10 - i)
-	}
-	rem := sum % 11
-	d1 := 0
-	if rem >= 2 {
-		d1 = 11 - rem
-	}
-	if d1 != int(d[9]-'0') {
-		return false
-	}
-	sum = 0
-	for i := 0; i < 10; i++ {
-		sum += int(d[i]-'0') * (11 - i)
-	}
-	rem = sum % 11
-	d2 := 0
-	if rem >= 2 {
-		d2 = 11 - rem
-	}
-	return d2 == int(d[10]-'0')
+	return checkDigit(d, []int{10, 9, 8, 7, 6, 5, 4, 3, 2}) == int(d[9]-'0') &&
+		checkDigit(d, []int{11, 10, 9, 8, 7, 6, 5, 4, 3, 2}) == int(d[10]-'0')
 }
 
 func validateCNPJFunc(d string) bool {
-	if len(d) != 14 {
+	if len(d) != 14 || allDigitsSame(d) {
 		return false
 	}
-	allSame := true
-	for i := 1; i < 14; i++ {
-		if d[i] != d[0] {
-			allSame = false
-			break
-		}
-	}
-	if allSame {
-		return false
-	}
-	w1 := []int{5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}
-	w2 := []int{6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}
-	sum := 0
-	for i := 0; i < 12; i++ {
-		sum += int(d[i]-'0') * w1[i]
-	}
-	rem := sum % 11
-	d1 := 0
-	if rem >= 2 {
-		d1 = 11 - rem
-	}
-	if d1 != int(d[12]-'0') {
-		return false
-	}
-	sum = 0
-	for i := 0; i < 13; i++ {
-		sum += int(d[i]-'0') * w2[i]
-	}
-	rem = sum % 11
-	d2 := 0
-	if rem >= 2 {
-		d2 = 11 - rem
-	}
-	return d2 == int(d[13]-'0')
+	return checkDigit(d, []int{5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}) == int(d[12]-'0') &&
+		checkDigit(d, []int{6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}) == int(d[13]-'0')
 }
 
 func validatePhoneBR(fl validator.FieldLevel) bool {
