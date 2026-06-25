@@ -79,4 +79,5 @@ var (
 	ErrUserHasPendingTasks  = errors.New("usuário possui tarefas pendentes no grupo")
 	ErrNoOtherAdmin         = errors.New("não é possível sair: não há outros administradores no grupo")
 	ErrMaxGroupsReached     = errors.New("usuário atingiu o limite máximo de 10 grupos")
+	ErrForbidden            = errors.New("permissão negada")
 )

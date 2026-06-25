@@ -218,7 +218,8 @@ func (h *GroupHandler) AddMember(w http.ResponseWriter, r *http.Request) {
 
 func (h *GroupHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 	groupID := r.PathValue("id")
-	userID := r.PathValue("userId")
+	callerID := r.Context().Value(UserIDKey).(string)
+	targetUserID := r.PathValue("userId")
 	var req struct {
 		IsAdmin bool `json:"is_admin"`
 	}
@@ -226,7 +227,7 @@ func (h *GroupHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Request) 
 		respondValidationError(w, errs)
 		return
 	}
-	member, err := h.svc.UpdateMemberRole(r.Context(), groupID, userID, req.IsAdmin)
+	member, err := h.svc.UpdateMemberRole(r.Context(), groupID, callerID, targetUserID, req.IsAdmin)
 	if err != nil {
 		handleError(w, r, err)
 		return

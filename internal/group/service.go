@@ -189,15 +189,23 @@ func (s *GroupService) RemoveMember(ctx context.Context, groupID, userID string)
 	return nil
 }
 
-func (s *GroupService) UpdateMemberRole(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
-	member, err := s.groupMemberRepo.UpdateRole(ctx, groupID, userID, isAdmin)
+func (s *GroupService) UpdateMemberRole(ctx context.Context, groupID, callerID, targetUserID string, isAdmin bool) (GroupMember, error) {
+	caller, err := s.groupMemberRepo.Get(ctx, groupID, callerID)
+	if err != nil {
+		return GroupMember{}, ErrMemberNotFound
+	}
+	if !caller.IsAdmin {
+		return GroupMember{}, ErrForbidden
+	}
+
+	member, err := s.groupMemberRepo.UpdateRole(ctx, groupID, targetUserID, isAdmin)
 	if err != nil {
 		return GroupMember{}, err
 	}
 
 	if actorID := actorIDFromContext(ctx); actorID != "" && s.auditLogRepo != nil {
 		s.auditLogRepo.Create(ctx, groupID, actorID, "group_member", member.ID, "member_role_updated", map[string]interface{}{
-			"user_id":  userID,
+			"user_id":  targetUserID,
 			"is_admin": isAdmin,
 		})
 	}

@@ -39,6 +39,7 @@ func toHTTPStatus(err error) int {
 
 	case
 		errors.Is(err, group.ErrCannotRemoveOwner),
+		errors.Is(err, group.ErrForbidden),
 		errors.Is(err, expense.ErrForbidden),
 		errors.Is(err, task.ErrForbidden):
 		return http.StatusForbidden
