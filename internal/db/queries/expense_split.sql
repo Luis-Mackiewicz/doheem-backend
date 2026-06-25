@@ -51,6 +51,11 @@ SELECT EXISTS(
   WHERE expense_id = $1 AND is_paid = true
 );
 
+-- name: MarkExpenseSplitsAsPaidByExpense :exec
+UPDATE expense_splits
+SET is_paid = true, paid_at = NOW()
+WHERE expense_id = $1 AND user_id = ANY($2::uuid[]);
+
 -- name: GetUserBalanceInGroup :one
 SELECT COALESCE(SUM(es.amount), 0)::NUMERIC(12,2) AS total_owed,
        COALESCE(SUM(CASE WHEN es.is_paid THEN es.amount ELSE 0 END), 0)::NUMERIC(12,2) AS total_paid

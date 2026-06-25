@@ -126,6 +126,11 @@ func (m *mockExpenseSplitRepo) MarkAsPaid(ctx context.Context, id string, receip
 	return args.Error(0)
 }
 
+func (m *mockExpenseSplitRepo) MarkAsPaidByExpenseAndUserIDs(ctx context.Context, expenseID string, userIDs []string) error {
+	args := m.Called(ctx, expenseID, userIDs)
+	return args.Error(0)
+}
+
 func (m *mockExpenseSplitRepo) DeleteByExpense(ctx context.Context, expenseID string) error {
 	args := m.Called(ctx, expenseID)
 	return args.Error(0)

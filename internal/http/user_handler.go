@@ -224,6 +224,12 @@ func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := h.svc.GetByID(r.Context(), userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "usuário não encontrado")
+		return
+	}
+
 	token, err := h.jwt.GenerateToken(userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "falha ao gerar token de autenticação")
@@ -241,7 +247,7 @@ func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	setRefreshTokenCookie(w, newRefreshToken, time.Now().Add(168*time.Hour))
 	respondJSON(w, http.StatusOK, authResponse{
-		User:  userResponse{ID: userID},
+		User:  toUserResponse(user),
 		Token: token,
 	})
 }

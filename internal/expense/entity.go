@@ -124,6 +124,7 @@ type ExpenseSplitRepository interface {
 	Create(ctx context.Context, expenseID, userID string, amount decimal.Decimal) (ExpenseSplit, error)
 	CreateMany(ctx context.Context, expenseID string, splits []CreateExpenseSplitParams) (int64, error)
 	MarkAsPaid(ctx context.Context, id string, receiptData, receiptType, receiptFileName *string) error
+	MarkAsPaidByExpenseAndUserIDs(ctx context.Context, expenseID string, userIDs []string) error
 	HasPaidSplits(ctx context.Context, expenseID string) (bool, error)
 	DeleteByExpense(ctx context.Context, expenseID string) error
 	GetUserBalance(ctx context.Context, userID, groupID string) (UserBalance, error)

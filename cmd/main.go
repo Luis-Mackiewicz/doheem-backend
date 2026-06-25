@@ -21,7 +21,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/shopspring/decimal"
 )
+
+func init() {
+	decimal.MarshalJSONWithoutQuotes = true
+}
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
