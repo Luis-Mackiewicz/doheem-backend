@@ -42,6 +42,11 @@ func (m *mockGroupRepo) Delete(ctx context.Context, id string) error {
 	return args.Error(0)
 }
 
+func (m *mockGroupRepo) CountByUserID(ctx context.Context, userID string) (int64, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 type mockGroupMemberRepo struct {
 	mock.Mock
 }
@@ -93,6 +98,7 @@ func TestGroupService_Create(t *testing.T) {
 	ctx := context.Background()
 
 	params := CreateGroupParams{Name: "Test Group"}
+	mockGroup.On("CountByUserID", ctx, "user1").Return(int64(0), nil)
 	mockGroup.On("Create", ctx, params).Return(Group{ID: "1", Name: "Test Group"}, nil)
 	mockMember.On("Create", ctx, "1", "user1", true).Return(GroupMember{}, nil)
 

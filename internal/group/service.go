@@ -43,9 +43,24 @@ func NewGroupService(groupRepo GroupRepository, groupMemberRepo GroupMemberRepos
 }
 
 func (s *GroupService) Create(ctx context.Context, params CreateGroupParams, creatorID string) (Group, error) {
+	count, err := s.groupRepo.CountByUserID(ctx, creatorID)
+	if err != nil {
+		return Group{}, err
+	}
+	if count >= 10 {
+		return Group{}, ErrMaxGroupsReached
+	}
+
 	group, err := s.groupRepo.Create(ctx, params)
 	if err != nil {
 		return Group{}, err
+	}
+
+	if params.PhotoURL != nil {
+		group, err = s.groupRepo.Update(ctx, group.ID, UpdateGroupParams{PhotoURL: params.PhotoURL})
+		if err != nil {
+			return Group{}, err
+		}
 	}
 
 	_, err = s.groupMemberRepo.Create(ctx, group.ID, creatorID, true)
@@ -54,9 +69,16 @@ func (s *GroupService) Create(ctx context.Context, params CreateGroupParams, cre
 	}
 
 	if s.auditLogRepo != nil {
-		s.auditLogRepo.Create(ctx, group.ID, creatorID, "group", group.ID, "created", map[string]interface{}{
+		changes := map[string]interface{}{
 			"name": params.Name,
-		})
+		}
+		if params.Description != "" {
+			changes["description"] = params.Description
+		}
+		if params.PhotoURL != nil {
+			changes["photo_url"] = *params.PhotoURL
+		}
+		s.auditLogRepo.Create(ctx, group.ID, creatorID, "group", group.ID, "created", changes)
 	}
 
 	return group, nil
@@ -74,7 +96,22 @@ func (s *GroupService) ListByUser(ctx context.Context, userID string) ([]Group, 
 	return s.groupRepo.ListByUserID(ctx, userID)
 }
 
+func validatePhoto(photoURL *string) error {
+	if photoURL == nil {
+		return nil
+	}
+	maxSize := 5 * 1024 * 1024
+	if len(*photoURL) > maxSize {
+		return fmt.Errorf("arquivo muito grande: máximo %d bytes", maxSize)
+	}
+	return nil
+}
+
 func (s *GroupService) Update(ctx context.Context, id string, params UpdateGroupParams) (Group, error) {
+	if err := validatePhoto(params.PhotoURL); err != nil {
+		return Group{}, err
+	}
+
 	group, err := s.groupRepo.Update(ctx, id, params)
 	if err != nil {
 		return Group{}, err
@@ -101,7 +138,15 @@ func (s *GroupService) Update(ctx context.Context, id string, params UpdateGroup
 }
 
 func (s *GroupService) AddMember(ctx context.Context, groupID, userID string, isAdmin bool) (GroupMember, error) {
-	count, err := s.groupMemberRepo.Count(ctx, groupID)
+	count, err := s.groupRepo.CountByUserID(ctx, userID)
+	if err != nil {
+		return GroupMember{}, err
+	}
+	if count >= 10 {
+		return GroupMember{}, ErrMaxGroupsReached
+	}
+
+	count, err = s.groupMemberRepo.Count(ctx, groupID)
 	if err != nil {
 		return GroupMember{}, err
 	}
@@ -173,6 +218,14 @@ func (s *GroupService) GetMember(ctx context.Context, groupID, userID string) (G
 }
 
 func (s *GroupService) Join(ctx context.Context, groupID, userID string) error {
+	count, err := s.groupRepo.CountByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if count >= 10 {
+		return ErrMaxGroupsReached
+	}
+
 	group, err := s.groupRepo.GetByID(ctx, groupID)
 	if err != nil {
 		return ErrGroupNotFound
@@ -182,7 +235,7 @@ func (s *GroupService) Join(ctx context.Context, groupID, userID string) error {
 		return fmt.Errorf("grupo não possui token de convite")
 	}
 
-	count, err := s.groupMemberRepo.Count(ctx, groupID)
+	count, err = s.groupMemberRepo.Count(ctx, groupID)
 	if err != nil {
 		return err
 	}

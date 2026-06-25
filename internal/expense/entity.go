@@ -91,6 +91,18 @@ type UserBalance struct {
 	TotalPaid decimal.Decimal
 }
 
+type ResidentBalance struct {
+	UserID         string
+	Name           string
+	TotalOwed      decimal.Decimal
+	TotalToReceive decimal.Decimal
+}
+
+type GroupBalance struct {
+	Residents []ResidentBalance
+	TotalDebt decimal.Decimal
+}
+
 type ExpenseRepository interface {
 	GetByID(ctx context.Context, id string) (Expense, error)
 	ListByGroup(ctx context.Context, groupID string, dateFrom, dateTo *time.Time, limit, offset int32) ([]Expense, error)
@@ -127,6 +139,7 @@ type ExpenseSplitRepository interface {
 	HasPaidSplits(ctx context.Context, expenseID string) (bool, error)
 	DeleteByExpense(ctx context.Context, expenseID string) error
 	GetUserBalance(ctx context.Context, userID, groupID string) (UserBalance, error)
+	GetGroupBalances(ctx context.Context, groupID string) ([]ResidentBalance, decimal.Decimal, error)
 }
 
 type CreateExpenseSplitParams struct {

@@ -29,14 +29,18 @@ func NewGroupHandler(svc *group.GroupService, rdb *redis.Client, expenseSvc *exp
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(UserIDKey).(string)
 	var req struct {
-		Name string `json:"name" validate:"required"`
+		Name        string  `json:"name" validate:"required"`
+		Description string  `json:"description"`
+		PhotoURL    *string `json:"photo_url"`
 	}
 	if errs := decodeAndValidate(r, &req); errs != nil {
 		respondValidationError(w, errs)
 		return
 	}
 	g, err := h.svc.Create(r.Context(), group.CreateGroupParams{
-		Name: req.Name,
+		Name:        req.Name,
+		Description: req.Description,
+		PhotoURL:    req.PhotoURL,
 	}, userID)
 	if err != nil {
 		handleError(w, r, err)
@@ -299,6 +303,43 @@ type groupMemberWithUserResponse struct {
 	UserEmail string  `json:"user_email"`
 	UserPhone *string `json:"user_phone,omitempty"`
 	AvatarURL *string `json:"avatar_url,omitempty"`
+}
+
+func (h *GroupHandler) GetBalances(w http.ResponseWriter, r *http.Request) {
+	groupID := r.PathValue("id")
+	userID := r.Context().Value(UserIDKey).(string)
+
+	if _, err := h.svc.GetMember(r.Context(), groupID, userID); err != nil {
+		respondError(w, http.StatusForbidden, "você não é membro deste grupo")
+		return
+	}
+
+	balance, err := h.expenseSvc.GetGroupBalances(r.Context(), groupID)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	type residentResp struct {
+		UserID    string          `json:"user_id"`
+		Name      string          `json:"name"`
+		Owes      decimal.Decimal `json:"owes"`
+		ToReceive decimal.Decimal `json:"to_receive"`
+	}
+	residents := make([]residentResp, len(balance.Residents))
+	for i, resident := range balance.Residents {
+		residents[i] = residentResp{
+			UserID:    resident.UserID,
+			Name:      resident.Name,
+			Owes:      resident.TotalOwed,
+			ToReceive: resident.TotalToReceive,
+		}
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"residents":  residents,
+		"total_debt": balance.TotalDebt,
+	})
 }
 
 func toGroupResponse(g group.Group) groupResponse {

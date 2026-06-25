@@ -191,6 +191,27 @@ func toExpenseSplitsWithUserFromIDsRow(rows []db.ListExpenseSplitsByExpenseIDsRo
 	return result
 }
 
+func (r *ExpenseSplitRepo) GetGroupBalances(ctx context.Context, groupID string) ([]ResidentBalance, decimal.Decimal, error) {
+	rows, err := r.q.GetGroupBalances(ctx, db.UUIDFromString(groupID))
+	if err != nil {
+		return nil, decimal.Zero, err
+	}
+	residents := make([]ResidentBalance, len(rows))
+	var totalDebt decimal.Decimal
+	for i, row := range rows {
+		owed := db.NumericToDecimal(row.TotalOwed)
+		toReceive := db.NumericToDecimal(row.TotalToReceive)
+		residents[i] = ResidentBalance{
+			UserID:         db.UUIDToString(row.UserID),
+			Name:           row.Name,
+			TotalOwed:      owed,
+			TotalToReceive: toReceive,
+		}
+		totalDebt = totalDebt.Add(owed)
+	}
+	return residents, totalDebt, nil
+}
+
 func toUserBalance(row db.GetUserBalanceInGroupRow) UserBalance {
 	return UserBalance{
 		TotalOwed: db.NumericToDecimal(row.TotalOwed),

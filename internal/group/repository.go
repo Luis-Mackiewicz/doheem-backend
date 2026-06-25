@@ -34,7 +34,10 @@ func (r *GroupRepo) ListByUserID(ctx context.Context, userID string) ([]Group, e
 }
 
 func (r *GroupRepo) Create(ctx context.Context, params CreateGroupParams) (Group, error) {
-	g, err := r.q.CreateGroup(ctx, params.Name)
+	g, err := r.q.CreateGroup(ctx, db.CreateGroupParams{
+		Name:        params.Name,
+		Description: params.Description,
+	})
 	if err != nil {
 		return Group{}, err
 	}
@@ -65,6 +68,10 @@ func (r *GroupRepo) RegenerateInviteToken(ctx context.Context, id, token string)
 		InviteToken: pgtype.Text{String: token, Valid: true},
 	})
 	return err
+}
+
+func (r *GroupRepo) CountByUserID(ctx context.Context, userID string) (int64, error) {
+	return r.q.CountGroupsByUserID(ctx, db.UUIDFromString(userID))
 }
 
 func toGroup(g db.Group) Group {

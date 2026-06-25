@@ -11,14 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CreateGroupParams struct {
+	Name        string
+	Description string
+}
+
 const createGroup = `-- name: CreateGroup :one
-INSERT INTO groups (name, invite_token)
-VALUES ($1, gen_random_uuid()::text)
+INSERT INTO groups (name, description, invite_token)
+VALUES ($1, $2, gen_random_uuid()::text)
 RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at
 `
 
-func (q *Queries) CreateGroup(ctx context.Context, name string) (Group, error) {
-	row := q.db.QueryRow(ctx, createGroup, name)
+func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Group, error) {
+	row := q.db.QueryRow(ctx, createGroup, arg.Name, arg.Description)
 	var i Group
 	err := row.Scan(
 		&i.ID,
@@ -168,4 +173,15 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const countGroupsByUserID = `-- name: CountGroupsByUserID :one
+SELECT COUNT(*) FROM group_members WHERE user_id = $1
+`
+
+func (q *Queries) CountGroupsByUserID(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countGroupsByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }

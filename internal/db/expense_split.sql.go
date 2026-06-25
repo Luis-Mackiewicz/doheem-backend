@@ -107,6 +107,48 @@ func (q *Queries) GetUserBalanceInGroup(ctx context.Context, arg GetUserBalanceI
 	return i, err
 }
 
+const getGroupBalances = `-- name: GetGroupBalances :many
+SELECT
+  gm.user_id,
+  u.name,
+  COALESCE(SUM(CASE WHEN NOT es.is_paid AND es.user_id != e.paid_by THEN es.amount ELSE 0 END), 0)::NUMERIC(12,2) AS total_owed,
+  COALESCE(SUM(CASE WHEN NOT es.is_paid AND e.paid_by = gm.user_id AND es.user_id != e.paid_by THEN es.amount ELSE 0 END), 0)::NUMERIC(12,2) AS total_to_receive
+FROM group_members gm
+JOIN users u ON u.id = gm.user_id
+LEFT JOIN expenses e ON e.group_id = gm.group_id
+LEFT JOIN expense_splits es ON es.expense_id = e.id
+WHERE gm.group_id = $1
+GROUP BY gm.user_id, u.name
+ORDER BY u.name
+`
+
+type GetGroupBalancesRow struct {
+	UserID         pgtype.UUID
+	Name           string
+	TotalOwed      pgtype.Numeric
+	TotalToReceive pgtype.Numeric
+}
+
+func (q *Queries) GetGroupBalances(ctx context.Context, groupID pgtype.UUID) ([]GetGroupBalancesRow, error) {
+	rows, err := q.db.Query(ctx, getGroupBalances, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetGroupBalancesRow
+	for rows.Next() {
+		var i GetGroupBalancesRow
+		if err := rows.Scan(&i.UserID, &i.Name, &i.TotalOwed, &i.TotalToReceive); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const hasExpensePaidSplits = `-- name: HasExpensePaidSplits :one
 SELECT EXISTS(
   SELECT 1 FROM expense_splits

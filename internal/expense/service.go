@@ -499,6 +499,17 @@ func (s *ExpenseService) GetUserBalance(ctx context.Context, userID, groupID str
 	return s.expenseSplitRepo.GetUserBalance(ctx, userID, groupID)
 }
 
+func (s *ExpenseService) GetGroupBalances(ctx context.Context, groupID string) (GroupBalance, error) {
+	residents, totalDebt, err := s.expenseSplitRepo.GetGroupBalances(ctx, groupID)
+	if err != nil {
+		return GroupBalance{}, err
+	}
+	return GroupBalance{
+		Residents: residents,
+		TotalDebt: totalDebt,
+	}, nil
+}
+
 type MarkSplitAsPaidInput struct {
 	SplitID         string
 	ReceiptData     *string

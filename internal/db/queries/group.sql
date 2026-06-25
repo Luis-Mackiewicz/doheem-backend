@@ -9,8 +9,8 @@ WHERE gm.user_id = $1
 ORDER BY g.name;
 
 -- name: CreateGroup :one
-INSERT INTO groups (name, invite_token)
-VALUES ($1, gen_random_uuid()::text)
+INSERT INTO groups (name, description, invite_token)
+VALUES ($1, $2, gen_random_uuid()::text)
 RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_at, updated_at;
 
 -- name: UpdateGroup :one
@@ -33,3 +33,6 @@ RETURNING id, name, description, monthly_fee, photo_url, invite_token, created_a
 -- name: DeleteGroup :exec
 DELETE FROM groups
 WHERE id = $1;
+
+-- name: CountGroupsByUserID :one
+SELECT COUNT(*) FROM group_members WHERE user_id = $1;

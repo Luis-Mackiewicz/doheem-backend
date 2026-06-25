@@ -77,6 +77,7 @@ func (rt *Router) Handler() http.Handler {
 	mux.Handle("POST /api/groups/{id}/join", rt.auth(rt.group.Join))
 	mux.Handle("POST /api/groups/{id}/regenerate-invite", rt.auth(rt.group.RegenerateInvite))
 	mux.Handle("GET /api/groups/{id}/invite-token", rt.auth(rt.group.GetInviteToken))
+	mux.Handle("GET /api/groups/{id}/balances", rt.auth(rt.group.GetBalances))
 
 	mux.Handle("POST /api/groups/{groupId}/expenses", rt.auth(rt.expense.Create))
 	mux.Handle("GET /api/groups/{groupId}/expenses", rt.auth(rt.expense.ListByGroup))

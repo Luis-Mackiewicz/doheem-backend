@@ -141,6 +141,11 @@ func (m *mockExpenseSplitRepo) GetUserBalance(ctx context.Context, userID, group
 	return args.Get(0).(UserBalance), args.Error(1)
 }
 
+func (m *mockExpenseSplitRepo) GetGroupBalances(ctx context.Context, groupID string) ([]ResidentBalance, decimal.Decimal, error) {
+	args := m.Called(ctx, groupID)
+	return args.Get(0).([]ResidentBalance), args.Get(1).(decimal.Decimal), args.Error(2)
+}
+
 type mockCategoryRepo struct {
 	mock.Mock
 }

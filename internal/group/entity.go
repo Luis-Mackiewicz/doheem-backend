@@ -20,7 +20,9 @@ type Group struct {
 }
 
 type CreateGroupParams struct {
-	Name string
+	Name        string
+	Description string
+	PhotoURL    *string
 }
 
 type UpdateGroupParams struct {
@@ -53,6 +55,7 @@ type GroupRepository interface {
 	Update(ctx context.Context, id string, params UpdateGroupParams) (Group, error)
 	RegenerateInviteToken(ctx context.Context, id, token string) error
 	Delete(ctx context.Context, id string) error
+	CountByUserID(ctx context.Context, userID string) (int64, error)
 }
 
 type GroupMemberRepository interface {
@@ -75,4 +78,5 @@ var (
 	ErrUserHasPendingDebts  = errors.New("usuário possui débitos pendentes no grupo")
 	ErrUserHasPendingTasks  = errors.New("usuário possui tarefas pendentes no grupo")
 	ErrNoOtherAdmin         = errors.New("não é possível sair: não há outros administradores no grupo")
+	ErrMaxGroupsReached     = errors.New("usuário atingiu o limite máximo de 10 grupos")
 )

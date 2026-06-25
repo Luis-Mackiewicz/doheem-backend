@@ -39,6 +39,10 @@ func (m *mockGroupRepo) Delete(ctx context.Context, id string) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
 }
+func (m *mockGroupRepo) CountByUserID(ctx context.Context, userID string) (int64, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(int64), args.Error(1)
+}
 
 type mockGroupMemberRepo struct{ mock.Mock }
 

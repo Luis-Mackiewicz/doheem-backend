@@ -82,6 +82,13 @@ func (s *UserService) List(ctx context.Context) ([]User, error) {
 }
 
 func (s *UserService) Update(ctx context.Context, id string, params UpdateUserParams) (User, error) {
+	if params.AvatarURL != nil {
+		maxSize := 5 * 1024 * 1024
+		if len(*params.AvatarURL) > maxSize {
+			return User{}, fmt.Errorf("arquivo muito grande: máximo %d bytes", maxSize)
+		}
+	}
+
 	if params.Email != nil {
 		existing, err := s.repo.GetByEmail(ctx, *params.Email)
 		if err == nil && existing.ID != "" && existing.ID != id {
